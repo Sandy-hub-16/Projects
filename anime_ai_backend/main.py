@@ -1,8 +1,10 @@
 import requests
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import requests
 import pandas as pd
 import os
-from fastapi.middleware.cors import CORSMiddleware
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -119,6 +121,14 @@ def enrich_with_jikan(title):
     return None
 
 # -------------------- ROUTES --------------------
+
+@app.get("/image-proxy")
+def image_proxy(url: str):
+    try:
+        response = requests.get(url, stream=True)
+        return StreamingResponse(response.raw, media_type="image/jpeg")
+    except:
+        return {"error": "Image failed"}
 
 @app.get("/")
 def home():

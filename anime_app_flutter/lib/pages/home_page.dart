@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -388,12 +389,23 @@ Widget featuredCard(
               ClipRRect(
                 borderRadius: BorderRadius.circular(15),
 
-                child: Image.network(
-                  safeImageUrl(imageUrl),
+                child: CachedNetworkImage(
+                  imageUrl: safeImageUrl(imageUrl),
                   width: double.infinity,
                   height: double.infinity,
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
+
+                  placeholder: (context, url) =>
+                      Container(color: Colors.grey[300]),
+
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[300],
+                    width: double.infinity,
+                    height: double.infinity,
+                    alignment: Alignment.center,
+                    child: Icon(Icons.broken_image),
+                  ),
                 ),
               ),
 
@@ -523,15 +535,19 @@ Widget trendingCard(String title, String imageUrl, String rating) {
           borderRadius: BorderRadius.circular(12),
           child: AspectRatio(
             aspectRatio: 2 / 3, // 🔥 FIXED RATIO (important)
-            child: Image.network(
-              safeImageUrl(imageUrl),
+            child: CachedNetworkImage(
+              imageUrl: safeImageUrl(imageUrl),
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[300],
-                  child: Center(child: Icon(Icons.broken_image, size: 40)),
-                );
-              },
+
+              placeholder: (context, url) => Container(
+                color: Colors.grey[300],
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[300],
+                child: Icon(Icons.broken_image),
+              ),
             ),
           ),
         ),
@@ -577,7 +593,7 @@ String safeImageUrl(dynamic url) {
   if (clean.isEmpty || clean == "N/A") {
     return "https://placehold.co/300x450/png?text=Image+Unavailable";
   }
-  return clean;
+  return "${ApiService.baseUrl}/image-proxy?url=${Uri.encodeComponent(clean)}";
 }
 
 Widget recentUpdateCard(
@@ -599,19 +615,20 @@ Widget recentUpdateCard(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            safeImageUrl(imageUrl),
+          child: CachedNetworkImage(
+            imageUrl: safeImageUrl(imageUrl),
             width: 90,
             height: 130,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 90,
-                height: 130,
-                color: Colors.grey[300],
-                child: Icon(Icons.broken_image),
-              );
-            },
+
+            placeholder: (context, url) => Container(color: Colors.grey[300]),
+
+            errorWidget: (context, url, error) => Container(
+              width: 90,
+              height: 130,
+              color: Colors.grey[300],
+              child: Icon(Icons.broken_image),
+            ),
           ),
         ),
         SizedBox(width: 10),
