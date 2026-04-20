@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 import requests
 import pandas as pd
 import os
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -136,10 +137,22 @@ def home():
 
 
 mood_map = {
-    "happy": ["Comedy", "Slice of Life"],
-    "sad": ["Drama", "Romance"],
-    "angry": ["Action", "Shounen"],
-    "relaxed": ["Fantasy", "Adventure"]
+    "happy": {
+        "genres": ["Comedy", "Slice of Life"],
+        "keywords": ["funny", "school", "friendship", "light"]
+    },
+     "sad": {
+        "genres": ["Drama", "Romance"],
+        "keywords": ["tragedy", "love", "loss", "emotional"]
+    },
+    "angry": {
+        "genres": ["Action", "Shounen"],
+        "keywords": ["fight", "revenge", "battle", "power"]
+    },
+    "relaxed": {
+        "genres": ["Fantasy", "Adventure"],
+        "keywords": ["calm", "journey", "magic", "peaceful"]
+    }
 }
 
 @app.get("/anime/enrich")
@@ -154,15 +167,28 @@ tfidf_matrix = vectorizer.fit_transform(anime['combined'])
 
 @app.get("/recommend")
 def recommend(mood: str):
-    genres = mood_map.get(mood.lower(), [])
+    mood_data = mood_map.get(mood.lower(), {})
+    
+    genres = mood_data.get("genres", [])
+    keywords = mood_data.get("keywords", [])
 
-    query = " ".join(genres)
+    query = " ".join(genres + keywords)
     query_vec = vectorizer.transform([query])
-
     similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
-    indices = similarity.argsort()[-10:][::-1]
 
-    return [format_anime(anime.iloc[i]) for i in indices]
+    #  TOP AI MATCHES
+    ai_indices = similarity.argsort()[-5:][::-1]
+
+    #  RANDOM DISCOVERY
+    random_indices = np.random.choice(len(anime), 3)
+
+    #  POPULAR (HIGH SCORE/RATING)
+    popular = anime.sort_values(by="Score", ascending=False).head(20)
+    popular_indices = np.random.choice(popular.index, 2)
+
+    final_indices = list(set(ai_indices.tolist() + random_indices.tolist() + popular_indices.tolist()))
+
+    return [format_anime(anime.iloc[i]) for i in final_indices[:10]]
 
 @app.get("/recent")
 def recent_updates():
