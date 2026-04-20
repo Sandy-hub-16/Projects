@@ -136,6 +136,31 @@ def home():
     return {"message": "Anime AI API is running"}
 
 
+episodes_db = {
+    "Jujutsu Kaisen": [
+        {
+            "episode": 1,
+            "title": "Trailer",
+            "video_url": "https://www.youtube.com/watch?v=MPfZhgLiK6w"
+        }
+    ],
+    "Sakamoto Days": [
+        {
+            "episode": 1,
+            "title": "Trailer",
+            "video_url": "https://www.youtube.com/watch?v=2p0r2xg5l1E"
+        }
+    ],
+    "Solo Leveling Season 2": [
+        {
+            "episode": 1,
+            "title": "Trailer",
+            "video_url": "https://www.youtube.com/watch?v=6U0s0dF5e8c"
+        }
+    ]
+}
+
+
 mood_map = {
     "happy": {
         "genres": ["Comedy", "Slice of Life"],
@@ -154,6 +179,10 @@ mood_map = {
         "keywords": ["calm", "journey", "magic", "peaceful"]
     }
 }
+
+@app.get("/episodes")
+def get_episodes(title: str):
+    return episodes_db.get(title, [])
 
 @app.get("/anime/enrich")
 def anime_enrich(title: str):

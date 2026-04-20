@@ -1,5 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
+import 'anime_player_page.dart';
 // import '../../services/api_service.dart';
 
 class AnimeDetailsPage extends StatelessWidget {
@@ -7,12 +11,18 @@ class AnimeDetailsPage extends StatelessWidget {
   final String imageUrl;
   final String rating;
 
-  const AnimeDetailsPage({
+  AnimeDetailsPage({
     super.key,
     required this.title,
     required this.imageUrl,
     required this.rating,
   });
+
+  final Map<String, String> trailerMap = {
+  "Jujutsu Kaisen": "https://www.youtube.com/watch?v=MPfZhgLiK6w",
+  "Sakamoto Days": "https://www.youtube.com/watch?v=9TbmxbckSjE",
+  "Solo Leveling Season 2": "https://www.youtube.com/watch?v=byJ7pxxhaDY",
+};
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +38,6 @@ class AnimeDetailsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             // 🔥 COVER IMAGE
             Stack(
               children: [
@@ -39,10 +48,7 @@ class AnimeDetailsPage extends StatelessWidget {
                   fit: BoxFit.cover,
                 ),
 
-                Container(
-                  height: 250,
-                  color: Colors.black.withOpacity(0.3),
-                ),
+                Container(height: 250, color: Colors.black.withOpacity(0.3)),
 
                 Positioned(
                   bottom: 20,
@@ -55,7 +61,7 @@ class AnimeDetailsPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                )
+                ),
               ],
             ),
 
@@ -64,7 +70,6 @@ class AnimeDetailsPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   // ⭐ RATING
                   Row(
                     children: [
@@ -84,12 +89,13 @@ class AnimeDetailsPage extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        // 🔥 For now: simulate play
-                        showDialog(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: Text("Play Anime"),
-                            content: Text("Streaming feature coming soon 🎬"),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AnimePlayerPage(
+                              title: title,
+                              videoUrl: trailerMap[title] ?? "",
+                            ),
                           ),
                         );
                       },
@@ -107,10 +113,7 @@ class AnimeDetailsPage extends StatelessWidget {
                   // 📖 DESCRIPTION (placeholder)
                   Text(
                     "Description",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
 
                   SizedBox(height: 8),
@@ -121,7 +124,7 @@ class AnimeDetailsPage extends StatelessWidget {
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),

@@ -1,3 +1,5 @@
+// ignore_for_file: duplicate_ignore, deprecated_member_use, avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
@@ -223,7 +225,7 @@ class _HomePageState extends State<HomePage> {
                           scrollDirection: Axis.horizontal,
                           padding: EdgeInsets.symmetric(horizontal: 10),
                           itemCount: recommendationList.length,
-                          separatorBuilder: (_, __) => SizedBox(width: 12),
+                          separatorBuilder: (_, _) => SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final anime = recommendationList[index];
 
@@ -283,7 +285,7 @@ class _HomePageState extends State<HomePage> {
                     scrollDirection: Axis.horizontal,
                     padding: EdgeInsets.symmetric(horizontal: 10),
                     itemCount: trendingList.length,
-                    separatorBuilder: (_, __) => SizedBox(width: 12),
+                    separatorBuilder: (_, _) => SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final anime = trendingList[index];
 
@@ -367,6 +369,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+
 
 // Featured Card Widget
 Widget featuredCard(BuildContext context,
