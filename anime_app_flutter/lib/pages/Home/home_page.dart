@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import '../../services/api_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
+import 'anime_details_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -136,6 +138,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     children: [
                       featuredCard(
+                        context,
                         'Jujutsu Kaisen',
                         'https://m.media-amazon.com/images/M/MV5BMjBlNTExMDAtMWZjZi00MDc5LWFkMjgtZDU0ZWQ5ODk3YWY5XkEyXkFqcGc@._V1_.jpg',
                         '9.0',
@@ -143,12 +146,14 @@ class _HomePageState extends State<HomePage> {
                       ),
 
                       featuredCard(
+                        context,
                         'Sakamoto Days',
                         'https://dnm.nflximg.net/api/v6/2DuQlx0fM4wd1nzqm5BFBi6ILa8/AAAAQSHBQVhtjd1LYiSNxPN9bLPFlbDo3swK9G6TivIEAPysUo0_-cJ57S-EcafNC0_0O4vQD7HGMJIUvoPeWmgZfbLDxVyyPdzBx19T8i2cS8YVyaQmeUx7uvrraloCJdNI2SJ4QSMUe9W1oWEqzXm91x57.jpg?r=776',
                         '9.2',
                         'assets/gif/sakamoto-days.gif',
                       ),
                       featuredCard(
+                        context,
                         'Solo Leveling Season 2',
                         'https://hobiverse.com.vn/cdn/shop/articles/Solo-Leveling-phan-2_520x500_520x500_1c67bc50-8a89-42ec-9740-ef951b982ffd.jpg?v=1742091242&width=360',
                         '8.9',
@@ -364,7 +369,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 // Featured Card Widget
-Widget featuredCard(
+Widget featuredCard(BuildContext context,
   String title,
   String imageUrl,
   String rating,
@@ -487,7 +492,18 @@ Widget featuredCard(
                     SizedBox(height: 10),
 
                     ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AnimeDetailsPage(
+                              title: title,
+                              imageUrl: safeImageUrl(imageUrl),
+                              rating: rating,
+                            ),
+                          ),
+                        );
+                      },
                       icon: const Icon(
                         Icons.play_arrow,
                         color: Colors.white,
