@@ -41,6 +41,7 @@ dependencies:
   chewie: ^1.7.1
   youtube_player_iframe: ^5.2.1
   pointer_interceptor: ^0.10.1+2
+  url_launcher: ^6.3.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
