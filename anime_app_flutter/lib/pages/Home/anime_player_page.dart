@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../../services/api_service.dart';
@@ -48,7 +49,9 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
 
     ytController.loadVideoById(videoId: videoId);
 
-    isControllerReady = true;
+    setState(() {
+      isControllerReady = true;
+    });
   }
 
   @override
@@ -70,62 +73,37 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
 
   @override
   Widget build(BuildContext context) {
+    // FIX 2: Cap video height so it never fills the entire viewport on wide screens
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxVideoHeight = screenHeight * 0.45;
+
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
-
       body: Stack(
         children: [
-          /// 🌐 FULL PAGE SCROLL (FIXES OVERFLOW)
+          /// 🌐 FULL PAGE SCROLL
           Positioned.fill(
             child: CustomScrollView(
               slivers: [
-                /// 🎬 VIDEO SECTION (STICKY STYLE)
+                /// 🎬 VIDEO SECTION — height-constrained for responsiveness
                 SliverToBoxAdapter(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: isControllerReady
-                        ? YoutubePlayerScaffold(
-                            controller: ytController,
-                            builder: (context, player) {
-                              return Stack(
-                                children: [
-                                  SizedBox.expand(child: player),
-                                  Positioned(
-                                    top: 40,
-                                    left: 10,
-                                    child: SafeArea(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () => Navigator.pop(context),
-                                          borderRadius: BorderRadius.circular(
-                                            30,
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(
-                                                0.7,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(30),
-                                            ),
-                                            child: const Icon(
-                                              Icons.arrow_back_ios_new,
-                                              color: Colors.white,
-                                              size: 18,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          )
-                        : const Center(child: CircularProgressIndicator()),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxVideoHeight),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: isControllerReady
+                          ? YoutubePlayerScaffold(
+                              controller: ytController,
+                              builder: (context, player) {
+                                // FIX 1: Back button removed from here —
+                                // on web the iframe captures taps and hides it.
+                                // It now lives in the outer Stack below.
+                                return SizedBox.expand(child: player);
+                              },
+                            )
+                          : const Center(child: CircularProgressIndicator()),
+                    ),
                   ),
                 ),
 
@@ -205,9 +183,10 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                                     ),
                                     onTap: () {
                                       final videoId =
-                                          YoutubePlayerController.convertUrlToId(
-                                            ep['video_url'] ?? "",
-                                          );
+                                          YoutubePlayerController
+                                              .convertUrlToId(
+                                                ep['video_url'] ?? "",
+                                              );
 
                                       if (videoId != null) {
                                         ytController.loadVideoById(
@@ -225,9 +204,40 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
               ],
             ),
           ),
+
+          /// ◀ BACK BUTTON — FIX 1: Lives in the outer Stack so it is always
+          /// rendered above the YouTube iframe and receives tap events correctly.
+          /// ◀ BACK BUTTON — wrapped in PointerInterceptor so the YouTube
+          /// iframe cannot swallow the tap event on Flutter Web.
+          Positioned(
+            top: 0,
+            left: 10,
+            child: SafeArea(
+              child: PointerInterceptor(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(30),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-    
     );
   }
 }
