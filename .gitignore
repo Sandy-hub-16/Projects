@@ -1,0 +1,23 @@
+# Environment variables — never commit API keys
+.env
+anime_ai_backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+.kiro/
+
+# Flutter / Dart
+anime_app_flutter/.dart_tool/
+anime_app_flutter/build/
+anime_app_flutter/.flutter-plugins
+anime_app_flutter/.flutter-plugins-dependencies

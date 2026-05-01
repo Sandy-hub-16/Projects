@@ -1,10 +1,9 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
+import '../../widgets/cross_origin_image.dart';
+import '../../main.dart';
 import 'anime_player_page.dart';
-// import '../../services/api_service.dart';
 
 class AnimeDetailsPage extends StatelessWidget {
   final String title;
@@ -19,43 +18,48 @@ class AnimeDetailsPage extends StatelessWidget {
   });
 
   final Map<String, String> trailerMap = {
-  "Jujutsu Kaisen": "https://www.youtube.com/watch?v=MPfZhgLiK6w",
-  "Sakamoto Days": "https://www.youtube.com/watch?v=9TbmxbckSjE",
-  "Solo Leveling Season 2": "https://www.youtube.com/watch?v=byJ7pxxhaDY",
-};
+    "Jujutsu Kaisen": "https://www.youtube.com/watch?v=MPfZhgLiK6w",
+    "Sakamoto Days": "https://www.youtube.com/watch?v=9TbmxbckSjE",
+    "Solo Leveling Season 2": "https://www.youtube.com/watch?v=byJ7pxxhaDY",
+  };
 
   @override
   Widget build(BuildContext context) {
+    final isDark = MyApp.of(context).isDarkMode;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final bodyBg = isDark ? const Color(0xFF0d1b4b) : Colors.white;
+    final descColor = isDark ? Colors.white60 : Colors.grey[700]!;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-
+      backgroundColor: bodyBg,
       appBar: AppBar(
-        title: Text(title),
-        backgroundColor: Color.fromARGB(255, 125, 125, 255),
+        backgroundColor: const Color.fromARGB(255, 125, 125, 255),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔥 COVER IMAGE
+            // Cover image
             Stack(
               children: [
-                CachedNetworkImage(
+                CrossOriginImage(
                   imageUrl: imageUrl,
                   width: double.infinity,
                   height: 250,
                   fit: BoxFit.cover,
                 ),
-
-                Container(height: 250, color: Colors.black.withOpacity(0.3)),
-
+                Container(
+                  height: 250,
+                  color: Colors.black.withOpacity(0.3),
+                ),
                 Positioned(
                   bottom: 20,
                   left: 20,
                   child: Text(
                     title,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -70,21 +74,18 @@ class AnimeDetailsPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ⭐ RATING
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.yellow),
-                      SizedBox(width: 5),
+                      const Icon(Icons.star, color: Colors.yellow),
+                      const SizedBox(width: 5),
                       Text(
                         rating,
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: textColor),
                       ),
                     ],
                   ),
-
-                  SizedBox(height: 20),
-
-                  // ▶ WATCH BUTTON
+                  const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -99,28 +100,30 @@ class AnimeDetailsPage extends StatelessWidget {
                           ),
                         );
                       },
-                      icon: Icon(Icons.play_arrow),
-                      label: Text("Watch Now"),
+                      icon: const Icon(Icons.play_arrow, color: Colors.white),
+                      label: const Text(
+                        "Watch Now",
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color.fromARGB(255, 125, 125, 255),
-                        padding: EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor:
+                            const Color.fromARGB(255, 125, 125, 255),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                   ),
-
-                  SizedBox(height: 20),
-
-                  // 📖 DESCRIPTION (placeholder)
+                  const SizedBox(height: 20),
                   Text(
                     "Description",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: textColor),
                   ),
-
-                  SizedBox(height: 8),
-
+                  const SizedBox(height: 8),
                   Text(
                     "This anime is recommended based on your mood. Enjoy watching!",
-                    style: TextStyle(color: Colors.grey[700]),
+                    style: TextStyle(color: descColor),
                   ),
                 ],
               ),

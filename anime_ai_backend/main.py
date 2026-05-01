@@ -1,13 +1,12 @@
+import json
+import os
 import requests
-from fastapi import FastAPI
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-import requests
-import pandas as pd
-import os
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -20,50 +19,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- LOAD DATA --------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-csv_path = os.path.join(BASE_DIR, "anime.csv")
-anime = pd.read_csv(csv_path)
+# -------------------- API KEYS & CONSTANTS --------------------
+GROQ_API_KEY       = os.getenv("GROQ_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# -------------------- HELPERS --------------------
-def safe_genre_filter(df, genres):
-    if not genres:
-        return df.head(10)
+GROQ_API_URL       = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+PLACEHOLDER_IMAGE  = "https://placehold.co/300x450/png?text=Image+Unavailable"
 
-    pattern = '|'.join(genres)
-
-    return df[
-        df['Genres'].fillna('').str.contains(pattern, case=False, na=False)
-    ]
-
-def clean_value(value, fallback="N/A"):
-    if value is None:
-        return fallback
-    value = str(value).strip()
-    if value.upper() == "UNKNOWN" or value == "":
-        return fallback
-    return value
-
-
-def format_anime(row):
-    return {
-        "title": clean_value(row.get("English name")) 
-                if clean_value(row.get("English name")) != "N/A"
-                else clean_value(row.get("Name"), "Unknown Anime"),
-
-        "japanese_title": clean_value(row.get("Name"), "Unknown Anime"),
-        "rating": clean_value(row.get("Score"), "N/A"),
-        "episodes": clean_value(row.get("Episodes"), "N/A"),
-        "image_url": clean_value(
-            row.get("Image URL"),
-            "https://placehold.co/300x450/png?text=Image+Unavailable"
-        ),
-        "genres": [
-            g.strip() for g in str(row.get("Genres", "")).split(",")
-            if g.strip().upper() != "UNKNOWN" and g.strip() != ""
-        ]
-    }
-
+# -------------------- JIKAN HELPERS (unchanged) --------------------
 
 def fetch_jikan_data(url):
     try:
@@ -82,7 +46,7 @@ def format_jikan(item):
     )
 
     if not image or image.strip() == "":
-        image = "https://placehold.co/300x450/png?text=Image+Unavailable"
+        image = PLACEHOLDER_IMAGE
 
     return {
         "title": item.get("title"),
@@ -93,6 +57,7 @@ def format_jikan(item):
         "genres": [g["name"] for g in item.get("genres", [])]
     }
 
+
 def enrich_with_jikan(title):
     try:
         url = f"https://api.jikan.moe/v4/anime?q={title}&limit=1"
@@ -102,7 +67,6 @@ def enrich_with_jikan(title):
 
         if data["data"]:
             item = data["data"][0]
-
             return {
                 "title": item.get("title"),
                 "japanese_title": item.get("title_japanese"),
@@ -111,29 +75,132 @@ def enrich_with_jikan(title):
                 "image_url": (
                     item.get("images", {}).get("webp", {}).get("large_image_url")
                     or item.get("images", {}).get("jpg", {}).get("large_image_url")
-                    or "https://placehold.co/300x450/png?text=Image+Unavailable"
+                    or PLACEHOLDER_IMAGE
                 ),
                 "genres": [g["name"] for g in item.get("genres", [])]
             }
 
-    except:
+    except Exception:
         return None
 
     return None
 
+
+# -------------------- AI PROMPT BUILDER --------------------
+
+def build_ai_prompt(emoji: str) -> str:
+    return f"""You are an anime recommendation assistant.
+The user is feeling the mood expressed by this emoji: {emoji}
+
+Based on this mood, recommend exactly 10 anime titles that match this feeling.
+Return ONLY a valid JSON array with no extra text, markdown, or explanation.
+Each item must have these exact fields:
+- "title": English title (string)
+- "japanese_title": Japanese/romaji title (string)
+- "rating": score out of 10 (number e.g. 8.5, or "N/A" if unknown)
+- "episodes": number of episodes (integer or "N/A" if unknown/ongoing)
+- "image_url": leave as empty string ""
+- "genres": array of genre strings (e.g. ["Action", "Comedy"])
+
+Example:
+[
+  {{
+    "title": "Clannad: After Story",
+    "japanese_title": "Clannad: After Story",
+    "rating": 9.0,
+    "episodes": 24,
+    "image_url": "",
+    "genres": ["Drama", "Romance", "Slice of Life"]
+  }}
+]"""
+
+
+# -------------------- AI CALLERS --------------------
+
+def call_groq(prompt: str) -> list:
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "model": "llama-3.1-8b-instant",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
+    print("[recommend] Calling Groq...")
+    response = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=30)
+    response.raise_for_status()
+    content = response.json()["choices"][0]["message"]["content"]
+    content = content.strip()
+    if content.startswith("```"):
+        content = content.lstrip("```json").lstrip("```")
+        content = content.rstrip("```").strip()
+    print("[recommend] Groq responded OK")
+    return json.loads(content)
+
+
+def call_openrouter(prompt: str) -> list:
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "model": "openai/gpt-oss-120b:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
+    print("[recommend] Calling OpenRouter...")
+    response = requests.post(OPENROUTER_API_URL, headers=headers, json=body, timeout=30)
+    response.raise_for_status()
+    content = response.json()["choices"][0]["message"]["content"]
+    content = content.strip()
+    if content.startswith("```"):
+        content = content.lstrip("```json").lstrip("```")
+        content = content.rstrip("```").strip()
+    print("[recommend] OpenRouter responded OK")
+    return json.loads(content)
+
+
+# -------------------- RESPONSE FORMATTERS --------------------
+
+def format_ai_response(raw_list: list) -> list:
+    result = []
+    for item in raw_list:
+        if not isinstance(item, dict):
+            continue
+        result.append({
+            "title":          str(item.get("title") or "Unknown Anime"),
+            "japanese_title": str(item.get("japanese_title") or item.get("title") or ""),
+            "rating":         item.get("rating") if item.get("rating") not in (None, "") else "N/A",
+            "episodes":       item.get("episodes") if item.get("episodes") not in (None, "") else "N/A",
+            "image_url":      str(item.get("image_url") or ""),
+            "genres":         list(item.get("genres") or []),
+        })
+    return result
+
+
+def enrich_images(recommendations: list) -> list:
+    for item in recommendations:
+        url = item.get("image_url", "")
+        if not url or url.strip() == "":
+            item["image_url"] = PLACEHOLDER_IMAGE
+    return recommendations
+
+
 # -------------------- ROUTES --------------------
+
+@app.get("/")
+def home():
+    return {"message": "Anime AI API is running"}
+
 
 @app.get("/image-proxy")
 def image_proxy(url: str):
     try:
         response = requests.get(url, stream=True)
         return StreamingResponse(response.raw, media_type="image/jpeg")
-    except:
+    except Exception:
         return {"error": "Image failed"}
-
-@app.get("/")
-def home():
-    return {"message": "Anime AI API is running"}
 
 
 episodes_db = {
@@ -161,63 +228,47 @@ episodes_db = {
 }
 
 
-mood_map = {
-    "happy": {
-        "genres": ["Comedy", "Slice of Life"],
-        "keywords": ["funny", "school", "friendship", "light"]
-    },
-     "sad": {
-        "genres": ["Drama", "Romance"],
-        "keywords": ["tragedy", "love", "loss", "emotional"]
-    },
-    "angry": {
-        "genres": ["Action", "Shounen"],
-        "keywords": ["fight", "revenge", "battle", "power"]
-    },
-    "relaxed": {
-        "genres": ["Fantasy", "Adventure"],
-        "keywords": ["calm", "journey", "magic", "peaceful"]
-    }
-}
-
 @app.get("/episodes")
 def get_episodes(title: str):
     return episodes_db.get(title, [])
+
 
 @app.get("/anime/enrich")
 def anime_enrich(title: str):
     return enrich_with_jikan(title) or {"error": "not found"}
 
 
-# Build once
-anime['combined'] = anime['Genres'].fillna('') + " " + anime['Name'].fillna('')
-vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = vectorizer.fit_transform(anime['combined'])
-
 @app.get("/recommend")
 def recommend(mood: str):
-    mood_data = mood_map.get(mood.lower(), {})
-    
-    genres = mood_data.get("genres", [])
-    keywords = mood_data.get("keywords", [])
+    if not mood or not mood.strip():
+        raise HTTPException(status_code=400, detail="mood parameter is required")
 
-    query = " ".join(genres + keywords)
-    query_vec = vectorizer.transform([query])
-    similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
+    prompt = build_ai_prompt(mood)
+    raw_list = None
 
-    #  TOP AI MATCHES
-    ai_indices = similarity.argsort()[-5:][::-1]
+    # Primary: Groq
+    try:
+        raw_list = call_groq(prompt)
+    except Exception as groq_err:
+        print(f"Groq failed: {groq_err}")
 
-    #  RANDOM DISCOVERY
-    random_indices = np.random.choice(len(anime), 3)
+    # Fallback: OpenRouter
+    if raw_list is None:
+        try:
+            raw_list = call_openrouter(prompt)
+        except Exception as or_err:
+            print(f"OpenRouter failed: {or_err}")
 
-    #  POPULAR (HIGH SCORE/RATING)
-    popular = anime.sort_values(by="Score", ascending=False).head(20)
-    popular_indices = np.random.choice(popular.index, 2)
+    if raw_list is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Both Groq and OpenRouter are unavailable. Please try again later."
+        )
 
-    final_indices = list(set(ai_indices.tolist() + random_indices.tolist() + popular_indices.tolist()))
+    formatted = format_ai_response(raw_list)
+    enriched  = enrich_images(formatted)
+    return enriched
 
-    return [format_anime(anime.iloc[i]) for i in final_indices[:10]]
 
 @app.get("/recent")
 def recent_updates():

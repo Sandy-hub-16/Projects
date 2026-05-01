@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'pages/Home/home_page.dart'; 
+import 'main.dart';
+import 'pages/Home/home_page.dart';
 import 'pages/explore_page.dart';
 import 'pages/search_page.dart';
 import 'pages/watchlist_page.dart';
 import 'pages/profile_page.dart';
-
-// Dummy pages (you can replace later)
-
-
-
+import 'widgets/night_sky_background.dart';
 
 class BottomNav extends StatefulWidget {
   const BottomNav({super.key});
@@ -19,68 +16,56 @@ class BottomNav extends StatefulWidget {
 
 class _BottomNavState extends State<BottomNav> {
   int selectedIndex = 0;
-  
-   void changeTab(int index) {
-    setState(() {
-      selectedIndex = index;
-    });
+
+  void changeTab(int index) {
+    setState(() => selectedIndex = index);
   }
 
   void onItemTapped(int index) {
-    setState(() {
-      selectedIndex = index;
-    });
+    setState(() => selectedIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = MyApp.of(context).isDarkMode;
+    final brandColor = const Color.fromARGB(255, 125, 125, 255);
 
-      final List<Widget> pages = [
-      HomePage(),
-      ExplorePage(),
-      SearchPage(),
+    final List<Widget> pages = [
+      const HomePage(),
+      const ExplorePage(),
+      const SearchPage(),
       WatchlistPage(onTabChange: changeTab),
-      ProfilePage(),
+      const ProfilePage(),
     ];
 
-  
-    return Scaffold(
+    final scaffold = Scaffold(
+      backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: selectedIndex,
         children: pages,
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
         onTap: onItemTapped,
         type: BottomNavigationBarType.fixed,
-
-        selectedItemColor: Color.fromARGB(255, 125, 125, 255),
-        unselectedItemColor: Colors.grey,
-
+        backgroundColor: isDark ? const Color(0xFF0d1b4b) : null,
+        selectedItemColor: brandColor,
+        unselectedItemColor: isDark ? Colors.white54 : Colors.grey,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+              icon: Icon(Icons.bookmark_border), label: 'Watchlist'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Explore',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark_border),
-            label: 'Watchlist',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
+              icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
       ),
     );
+
+    if (isDark) {
+      return NightSkyBackground(child: scaffold);
+    }
+    return scaffold;
   }
 }
