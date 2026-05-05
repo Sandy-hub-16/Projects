@@ -3,7 +3,7 @@ import 'dart:convert';
 
 class ApiService {
   // Backend is only needed for episodes now.
-  static const String baseUrl = "https://YOUR-APP-NAME.onrender.com";
+  static const String baseUrl = "https://anime-ai-backend.onrender.com";
 
   static Future<List> fetchEpisodes(String title) async {
     final response = await http.get(
