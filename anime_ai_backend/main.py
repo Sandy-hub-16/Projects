@@ -92,7 +92,7 @@ def build_ai_prompt(emoji: str) -> str:
     return f"""You are an anime recommendation assistant.
 The user is feeling the mood expressed by this emoji: {emoji}
 
-Based on this mood, recommend exactly 10 anime titles that match this feeling.
+Based on this mood, recommend exactly 20 anime titles that match this feeling.
 Return ONLY a valid JSON array with no extra text, markdown, or explanation.
 Each item must have these exact fields:
 - "title": English title (string)

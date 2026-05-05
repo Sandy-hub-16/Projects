@@ -75,6 +75,9 @@ class GroqRecommendationService {
   // In-memory cache: emoji → recommendation list.
   static final Map<String, List<Recommendation>> _cache = {};
 
+  // Cache for the explore page (fetched once per session).
+  static List<Recommendation>? _exploreCache;
+
   // Private constructor — this class is not meant to be instantiated.
   GroqRecommendationService._();
 
@@ -198,6 +201,93 @@ class GroqRecommendationService {
     await Future.wait(futures);
   }
 
+  /// Returns a broad list of 40 well-known anime for the Explore page.
+  /// Results are cached for the session so the page doesn't re-fetch on
+  /// every visit.
+  static Future<List<Recommendation>> fetchExploreAnime() async {
+    if (_exploreCache != null) return _exploreCache!;
+
+    if (_groqApiKey.isEmpty) {
+      throw ArgumentError(
+          'GROQ_API_KEY is not configured. Supply it via --dart-define=GROQ_API_KEY=<value>.');
+    }
+
+    const prompt = '''List exactly 40 well-known anime titles spanning a wide variety of genres.
+
+Respond with ONLY a raw JSON array. No markdown, no code fences, no explanation — just the JSON array.
+
+Each item must follow this exact schema:
+[
+  {
+    "title": "string",
+    "japanese_title": "string",
+    "rating": number or "N/A",
+    "episodes": integer or "N/A",
+    "year": integer or "N/A",
+    "image_url": "",
+    "genres": ["string", ...]
+  }
+]
+
+Rules:
+- "image_url" must always be an empty string "".
+- "rating" must be a number (e.g. 8.5) or the string "N/A".
+- "episodes" must be an integer (e.g. 12) or the string "N/A".
+- "year" must be a 4-digit integer (e.g. 2021) or the string "N/A".
+- "genres" must be an array of genre strings (e.g. ["Action", "Comedy"]).
+- Include a diverse mix of genres: Action, Adventure, Comedy, Drama, Fantasy, Historical, Mystery, Romance, Sci-Fi, Shonen, Slice of Life, Supernatural, Thriller.
+- Output nothing except the JSON array.''';
+
+    late final Object e1;
+    try {
+      final response = await _callGroq(prompt);
+      final list = _parseExploreResponse(response.body);
+      _exploreCache = list;
+      return list;
+    } catch (groqError) {
+      e1 = groqError;
+    }
+
+    if (_openRouterApiKey.isEmpty) throw e1;
+
+    try {
+      final response = await _callOpenRouter(prompt);
+      final list = _parseExploreResponse(response.body);
+      _exploreCache = list;
+      return list;
+    } catch (e2) {
+      throw RecommendationException(
+          'Both Groq and OpenRouter failed: $e1 / $e2');
+    }
+  }
+
+  static List<Recommendation> _parseExploreResponse(String responseBody) {
+    final envelope = json.decode(responseBody) as Map<String, dynamic>;
+    final choices = envelope['choices'] as List<dynamic>;
+    final content =
+        (choices[0] as Map<String, dynamic>)['message']['content'] as String;
+    final extracted = _extractJsonArray(content);
+    final decoded = json.decode(extracted);
+    if (decoded is! List) {
+      throw const FormatException('Expected a JSON array');
+    }
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map((m) => Recommendation(
+              title: (m['title'] as String?) ?? 'Unknown',
+              japaneseTitle: (m['japanese_title'] as String?) ?? '',
+              rating: m['rating']?.toString() ?? 'N/A',
+              episodes: m['episodes']?.toString() ?? 'N/A',
+              imageUrl: (m['image_url'] as String?) ?? '',
+              genres: (m['genres'] as List?)
+                      ?.whereType<String>()
+                      .toList() ??
+                  [],
+            ))
+        .take(40)
+        .toList();
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers (stubs — filled in by subsequent tasks)
   // -------------------------------------------------------------------------
@@ -205,7 +295,7 @@ class GroqRecommendationService {
   static String _buildPrompt(String emoji) {
     return '''My current mood is: $emoji
 
-Recommend exactly 6 to 8 anime titles that match this mood.
+Recommend exactly 20 anime titles that match this mood.
 
 Respond with ONLY a raw JSON array. No markdown, no code fences, no explanation, no extra text — just the JSON array itself.
 
@@ -348,7 +438,7 @@ Important:
     return decoded
         .whereType<Map<String, dynamic>>()
         .map(Recommendation.fromMap)
-        .take(8)
+        .take(20)
         .toList();
   }
 }

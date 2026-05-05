@@ -9,18 +9,107 @@ import '../../main.dart';
 
 import 'anime_details_page.dart';
 
-const List<String> kSmileysPeopleEmojis = [
-  '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃',
-  '😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙',
-  '🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫',
-  '🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬',
-  '🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢',
-  '🤮','🤧','🥵','🥶','🥴','😵','💫','🤯','🤠','🥳',
-  '🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯',
-  '😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭',
-  '😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡',
-  '😠','🤬','😈','👿','💀','☠️',
-];
+// Each entry: emoji → searchable keywords (lowercase)
+const Map<String, String> kEmojiKeywords = {
+  '😀': 'grinning happy smile face',
+  '😃': 'grinning big eyes happy smile',
+  '😄': 'grinning smiling eyes happy',
+  '😁': 'beaming grin happy smile',
+  '😆': 'laughing grinning squinting happy',
+  '😅': 'sweat smile nervous laugh',
+  '🤣': 'rolling floor laughing rofl',
+  '😂': 'joy tears laughing cry funny',
+  '🙂': 'slightly smiling smile',
+  '🙃': 'upside down smile sarcastic',
+  '😉': 'winking wink smile',
+  '😊': 'smiling blush happy warm',
+  '😇': 'smiling halo angel innocent',
+  '🥰': 'smiling hearts love adore',
+  '😍': 'heart eyes love adore',
+  '🤩': 'star struck excited wow amazing',
+  '😘': 'face blowing kiss love',
+  '😗': 'kissing face',
+  '😚': 'kissing closed eyes',
+  '😙': 'kissing smiling eyes',
+  '🥲': 'smiling tear happy cry',
+  '😋': 'face savoring food yum delicious',
+  '😛': 'face tongue playful',
+  '😜': 'winking tongue playful',
+  '🤪': 'zany crazy silly',
+  '😝': 'squinting tongue silly',
+  '🤑': 'money mouth rich greedy',
+  '🤗': 'hugging hug warm',
+  '🤭': 'face hand giggle secret',
+  '🤫': 'shushing quiet secret',
+  '🤔': 'thinking hmm pondering',
+  '🤐': 'zipper mouth silent quiet',
+  '🤨': 'raised eyebrow skeptical suspicious',
+  '😐': 'neutral expressionless blank',
+  '😑': 'expressionless blank',
+  '😶': 'no mouth silent speechless',
+  '😏': 'smirking smug',
+  '😒': 'unamused unhappy bored',
+  '🙄': 'eye roll annoyed',
+  '😬': 'grimacing awkward nervous',
+  '🤥': 'lying pinocchio',
+  '😌': 'relieved peaceful calm',
+  '😔': 'pensive sad thoughtful',
+  '😪': 'sleepy tired droopy',
+  '🤤': 'drooling hungry',
+  '😴': 'sleeping zzz tired',
+  '😷': 'mask sick ill medical',
+  '🤒': 'thermometer sick fever ill',
+  '🤕': 'bandage hurt injured',
+  '🤢': 'nauseated sick gross',
+  '🤮': 'vomiting sick disgusted',
+  '🤧': 'sneezing sick cold',
+  '🥵': 'hot flushed overheated',
+  '🥶': 'cold freezing blue',
+  '🥴': 'woozy dizzy drunk',
+  '😵': 'dizzy spiral eyes',
+  '💫': 'dizzy star sparkle',
+  '🤯': 'exploding head mind blown shocked',
+  '🤠': 'cowboy hat western',
+  '🥳': 'partying celebration birthday',
+  '🥸': 'disguised glasses nose',
+  '😎': 'sunglasses cool smug',
+  '🤓': 'nerd glasses smart',
+  '🧐': 'monocle curious inspect',
+  '😕': 'confused worried',
+  '😟': 'worried concerned',
+  '🙁': 'slightly frowning sad',
+  '☹️': 'frowning sad unhappy',
+  '😮': 'open mouth surprised',
+  '😯': 'hushed surprised quiet',
+  '😲': 'astonished shocked wow',
+  '😳': 'flushed embarrassed shocked',
+  '🥺': 'pleading puppy eyes sad',
+  '😦': 'frowning open mouth worried',
+  '😧': 'anguished distressed',
+  '😨': 'fearful scared anxious',
+  '😰': 'anxious sweat nervous',
+  '😥': 'sad relieved disappointed',
+  '😢': 'crying sad tear',
+  '😭': 'loudly crying sob sad',
+  '😱': 'screaming fear shocked horror',
+  '😖': 'confounded frustrated',
+  '😣': 'persevering struggling',
+  '😞': 'disappointed sad',
+  '😓': 'downcast sweat sad',
+  '😩': 'weary tired exhausted',
+  '😫': 'tired exhausted',
+  '🥱': 'yawning bored tired',
+  '😤': 'triumph steam angry proud',
+  '😡': 'pouting angry red mad',
+  '😠': 'angry mad',
+  '🤬': 'cursing swearing angry symbols',
+  '😈': 'smiling devil evil mischievous',
+  '👿': 'angry devil evil',
+  '💀': 'skull death dead',
+  '☠️': 'skull crossbones danger poison',
+};
+
+List<String> get kSmileysPeopleEmojis => kEmojiKeywords.keys.toList();
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -37,8 +126,10 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = false;
   bool isRecommendationLoading = false;
 
-  String? _selectedEmoji;
+  String _selectedEmoji = '😊';
   bool _isPickerOpen = false;
+  final LayerLink _filterLayerLink = LayerLink();
+  OverlayEntry? _pickerOverlay;
 
   Future<void> loadRecommendations(String mood) async {
     setState(() {
@@ -108,60 +199,78 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildFilterButton() {
     const brandColor = Color.fromARGB(255, 125, 125, 255);
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
+    return CompositedTransformTarget(
+      link: _filterLayerLink,
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(22),
-        onTap: _openPicker,
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            border: Border.all(color: brandColor, width: 1.5),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_selectedEmoji == null) ...[
-                const Icon(Icons.tune, color: brandColor, size: 16),
-                const SizedBox(width: 4),
-                const Text(
-                  'Filter',
-                  style: TextStyle(
-                    color: brandColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ] else
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: _togglePicker,
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: brandColor, width: 1.5),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  _selectedEmoji!,
-                  style: const TextStyle(fontSize: 26),
+                  _selectedEmoji,
+                  style: const TextStyle(fontSize: 22),
                 ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down, color: brandColor, size: 16),
-            ],
+                const SizedBox(width: 4),
+                Icon(
+                  _isPickerOpen
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: brandColor,
+                  size: 16,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _openPicker() async {
-    setState(() => _isPickerOpen = true);
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _EmojiPickerSheet(),
-    );
-    setState(() => _isPickerOpen = false);
-    if (result != null) {
-      setState(() => _selectedEmoji = result);
-      loadRecommendations(result);
+  void _togglePicker() {
+    if (_isPickerOpen) {
+      _closePicker();
+    } else {
+      _showPicker();
     }
+  }
+
+  void _showPicker() {
+    setState(() => _isPickerOpen = true);
+    _pickerOverlay = OverlayEntry(
+      builder: (context) => _EmojiPickerOverlay(
+        link: _filterLayerLink,
+        onSelect: (emoji) {
+          _closePicker();
+          setState(() => _selectedEmoji = emoji);
+          loadRecommendations(emoji);
+        },
+        onDismiss: _closePicker,
+      ),
+    );
+    Overlay.of(context).insert(_pickerOverlay!);
+  }
+
+  void _closePicker() {
+    _pickerOverlay?.remove();
+    _pickerOverlay = null;
+    if (mounted) setState(() => _isPickerOpen = false);
+  }
+
+  @override
+  void dispose() {
+    _closePicker();
+    super.dispose();
   }
 
   @override
@@ -169,6 +278,15 @@ class _HomePageState extends State<HomePage> {
     final isDark = MyApp.of(context).isDarkMode;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subtitleColor = isDark ? Colors.white54 : const Color.fromARGB(255, 129, 126, 126);
+
+    // Responsive breakpoint: wide = maximized browser / large screen
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 600;
+
+    // Scale factors for wide screens
+    final double featuredHeight = isWide ? 300 : 220;
+    final double cardListHeight = isWide ? 360 : 280;
+    final double cardWidth = isWide ? 160.0 : 120.0;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -213,7 +331,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 //Featured Section (Scrollable)
                 SizedBox(
-                  height: 220,
+                  height: featuredHeight,
 
                   child: PageView(
                     controller: PageController(
@@ -227,6 +345,7 @@ class _HomePageState extends State<HomePage> {
                         'https://m.media-amazon.com/images/M/MV5BMjBlNTExMDAtMWZjZi00MDc5LWFkMjgtZDU0ZWQ5ODk3YWY5XkEyXkFqcGc@._V1_.jpg',
                         '9.0',
                         'assets/gif/jjk.gif',
+                        isWide: isWide,
                       ),
 
                       featuredCard(
@@ -235,6 +354,7 @@ class _HomePageState extends State<HomePage> {
                         'https://dnm.nflximg.net/api/v6/2DuQlx0fM4wd1nzqm5BFBi6ILa8/AAAAQSHBQVhtjd1LYiSNxPN9bLPFlbDo3swK9G6TivIEAPysUo0_-cJ57S-EcafNC0_0O4vQD7HGMJIUvoPeWmgZfbLDxVyyPdzBx19T8i2cS8YVyaQmeUx7uvrraloCJdNI2SJ4QSMUe9W1oWEqzXm91x57.jpg?r=776',
                         '9.2',
                         'assets/gif/sakamoto-days.gif',
+                        isWide: isWide,
                       ),
                       featuredCard(
                         context,
@@ -242,6 +362,7 @@ class _HomePageState extends State<HomePage> {
                         'https://hobiverse.com.vn/cdn/shop/articles/Solo-Leveling-phan-2_520x500_520x500_1c67bc50-8a89-42ec-9740-ef951b982ffd.jpg?v=1742091242&width=360',
                         '8.9',
                         'assets/gif/solo-leveling.gif',
+                        isWide: isWide,
                       ),
                     ],
                   ),
@@ -279,7 +400,7 @@ class _HomePageState extends State<HomePage> {
 
                 // Recommendation List
                 SizedBox(
-                  height: 280,
+                  height: cardListHeight,
                   child: isRecommendationLoading
                       ? Center(child: CircularProgressIndicator())
                       : recommendationList.isEmpty
@@ -293,12 +414,13 @@ class _HomePageState extends State<HomePage> {
                             final anime = recommendationList[index];
 
                             return SizedBox(
-                              width: 120,
+                              width: cardWidth,
                               child: trendingCard(
                                 anime.title,
                                 safeImageUrl(anime.imageUrl),
                                 anime.rating,
                                 isDark: isDark,
+                                isWide: isWide,
                               ),
                             );
                           },
@@ -345,7 +467,7 @@ class _HomePageState extends State<HomePage> {
 
                 //Trending Card List
                 SizedBox(
-                  height: 280,
+                  height: cardListHeight,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: EdgeInsets.symmetric(horizontal: 10),
@@ -355,12 +477,13 @@ class _HomePageState extends State<HomePage> {
                       final anime = trendingList[index];
 
                       return SizedBox(
-                        width: 120,
+                        width: cardWidth,
                         child: trendingCard(
                           anime['title'] ?? 'No Title',
                           safeImageUrl(anime['image_url']),
                           anime['rating'].toString(),
                           isDark: isDark,
+                          isWide: isWide,
                         ),
                       );
                     },
@@ -425,6 +548,7 @@ class _HomePageState extends State<HomePage> {
                                     anime['image_url'] ?? '',
                                     List<String>.from(anime['genres'] ?? []),
                                     isDark: isDark,
+                                    isWide: isWide,
                                   );
                                 }).toList(),
                         ),
@@ -438,126 +562,238 @@ class _HomePageState extends State<HomePage> {
 
 
 
-// ─── Emoji Picker Sheet ───────────────────────────────────────────────────────
+// ─── Emoji Picker Overlay (Facebook/Messenger tooltip style) ─────────────────
 
-class _EmojiPickerSheet extends StatefulWidget {
-  const _EmojiPickerSheet();
+class _EmojiPickerOverlay extends StatefulWidget {
+  final LayerLink link;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onDismiss;
+
+  const _EmojiPickerOverlay({
+    required this.link,
+    required this.onSelect,
+    required this.onDismiss,
+  });
 
   @override
-  State<_EmojiPickerSheet> createState() => _EmojiPickerSheetState();
+  State<_EmojiPickerOverlay> createState() => _EmojiPickerOverlayState();
 }
 
-class _EmojiPickerSheetState extends State<_EmojiPickerSheet> {
-  String _searchQuery = '';
-  late List<String> _filtered;
+class _EmojiPickerOverlayState extends State<_EmojiPickerOverlay>
+    with SingleTickerProviderStateMixin {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<String> _filtered = kSmileysPeopleEmojis;
+  late AnimationController _animCtrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _filtered = kSmileysPeopleEmojis;
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _scaleAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack);
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _animCtrl.forward();
+    _searchCtrl.addListener(_onSearch);
   }
 
-  void _onSearch(String query) {
+  void _onSearch() {
+    final q = _searchCtrl.text.toLowerCase().trim();
     setState(() {
-      _searchQuery = query;
-      _filtered = query.isEmpty
-          ? kSmileysPeopleEmojis
-          : kSmileysPeopleEmojis.where((e) => e.contains(query)).toList();
+      if (q.isEmpty) {
+        _filtered = kSmileysPeopleEmojis;
+      } else {
+        _filtered = kEmojiKeywords.entries
+            .where((e) => e.value.contains(q) || e.key.contains(q))
+            .map((e) => e.key)
+            .toList();
+      }
     });
   }
 
   @override
+  void dispose() {
+    _animCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.55 + bottomInset,
-      padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white30,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    // Popup dimensions
+    const double popupWidth = 300;
+    const double popupHeight = 320;
+    const double arrowSize = 8.0;
+
+    return Stack(
+      children: [
+        // Transparent barrier to dismiss on outside tap
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: widget.onDismiss,
           ),
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: TextField(
-              onChanged: _onSearch,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search emoji…',
-                hintStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.search, color: Colors.white38),
-                filled: true,
-                fillColor: Colors.white12,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ),
-          // Section label
-          Padding(
-            padding: const EdgeInsets.only(left: 14, bottom: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Smileys & People',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-            ),
-          ),
-          // Emoji grid
-          Expanded(
-            child: _filtered.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No results',
-                      style: TextStyle(color: Colors.white38),
-                    ),
-                  )
-                : GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 8,
-                      childAspectRatio: 1,
-                    ),
-                    itemCount: _filtered.length,
-                    itemBuilder: (context, index) {
-                      final emoji = _filtered[index];
-                      return GestureDetector(
-                        onTap: () => Navigator.pop(context, emoji),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Center(
-                            child: Text(
-                              emoji,
-                              style: const TextStyle(fontSize: 26),
+        ),
+        // The popup itself, anchored above the filter button
+        CompositedTransformFollower(
+          link: widget.link,
+          showWhenUnlinked: false,
+          // Shift left so popup aligns to the right edge of the button,
+          // and up so it sits above the button with a small gap + arrow
+          offset: Offset(-(popupWidth - 10), -(popupHeight + arrowSize + 8)),
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: ScaleTransition(
+              scale: _scaleAnim,
+              alignment: Alignment.bottomRight,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // ── Popup card ──────────────────────────────────────────
+                    Container(
+                      width: popupWidth,
+                      height: popupHeight,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1e1e2e),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black54,
+                            blurRadius: 20,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Search bar
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              autofocus: false,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Search emoji…',
+                                hintStyle: const TextStyle(
+                                    color: Colors.white38, fontSize: 13),
+                                prefixIcon: const Icon(Icons.search,
+                                    color: Colors.white38, size: 18),
+                                filled: true,
+                                fillColor: Colors.white12,
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                          // Section label
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(left: 12, bottom: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _searchCtrl.text.isEmpty
+                                    ? 'Emojis'
+                                    : 'Results',
+                                style: const TextStyle(
+                                    color: Colors.white38, fontSize: 11),
+                              ),
+                            ),
+                          ),
+                          // Emoji grid
+                          Expanded(
+                            child: _filtered.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'No results',
+                                      style:
+                                          TextStyle(color: Colors.white38),
+                                    ),
+                                  )
+                                : GridView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 8,
+                                      childAspectRatio: 1,
+                                    ),
+                                    itemCount: _filtered.length,
+                                    itemBuilder: (_, i) {
+                                      final emoji = _filtered[i];
+                                      return GestureDetector(
+                                        onTap: () =>
+                                            widget.onSelect(emoji),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              emoji,
+                                              style: const TextStyle(
+                                                  fontSize: 22),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      ),
+                    ),
+                    // ── Arrow pointing down toward the button ───────────────
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: CustomPaint(
+                        size: Size(arrowSize * 2, arrowSize),
+                        painter: _ArrowPainter(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
+}
+
+/// Paints a downward-pointing triangle arrow for the tooltip tail.
+class _ArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1e1e2e)
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_ArrowPainter old) => false;
 }
 
 // Featured Card Widget
@@ -565,14 +801,17 @@ Widget featuredCard(BuildContext context,
   String title,
   String imageUrl,
   String rating,
-  String gifPath,
-) {
+  String gifPath, {
+  bool isWide = false,
+}) {
   final ValueNotifier<bool> isHover = ValueNotifier(false);
+  final double cardHeight = isWide ? 260.0 : 180.0;
+  final double titleFontSize = isWide ? 26.0 : 22.0;
 
   return Container(
     margin: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-    width: 320,
-    height: 180,
+    width: isWide ? 420 : 320,
+    height: cardHeight,
 
     child: MouseRegion(
       onEnter: (_) => isHover.value = true,
@@ -662,7 +901,7 @@ Widget featuredCard(BuildContext context,
                       title,
                       style: GoogleFonts.poppins(
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: titleFontSize,
                         fontWeight: FontWeight(600),
                         fontStyle: FontStyle.italic,
                       ),
@@ -718,10 +957,13 @@ Widget featuredCard(BuildContext context,
 }
 
 //Trending Card Widget
-Widget trendingCard(String title, String imageUrl, String rating, {bool isDark = false}) {
+Widget trendingCard(String title, String imageUrl, String rating, {bool isDark = false, bool isWide = false}) {
   final textColor = isDark ? Colors.white : Colors.black87;
+  final double cardWidth = isWide ? 160.0 : 120.0;
+  final double titleFontSize = isWide ? 13.0 : 12.0;
+  final double ratingFontSize = isWide ? 13.0 : 12.0;
   return Container(
-    width: 120,
+    width: cardWidth,
     margin: EdgeInsets.only(right: 12, top: 10, bottom: 10),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -745,7 +987,7 @@ Widget trendingCard(String title, String imageUrl, String rating, {bool isDark =
           title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+          style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.w600, color: textColor),
         ),
 
         SizedBox(height: 4),
@@ -759,7 +1001,7 @@ Widget trendingCard(String title, String imageUrl, String rating, {bool isDark =
               child: Text(
                 rating,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(fontSize: ratingFontSize, fontWeight: FontWeight.bold, color: textColor),
               ),
             ),
           ],
@@ -789,11 +1031,20 @@ Widget recentUpdateCard(
   String imageUrl,
   List<String> genres, {
   bool isDark = false,
+  bool isWide = false,
 }) {
   final textColor = isDark ? Colors.white : Colors.black87;
   final subtitleColor = isDark ? Colors.white54 : Colors.grey;
   final cardColor = isDark ? const Color(0xFF1a2a5e) : Colors.white;
   final shadowColor = isDark ? Colors.black45 : Colors.black12;
+
+  // Responsive image and font sizes
+  final double imgWidth = isWide ? 110.0 : 90.0;
+  final double imgHeight = isWide ? 160.0 : 130.0;
+  final double titleFontSize = isWide ? 16.0 : 14.0;
+  final double subFontSize = isWide ? 12.0 : 11.0;
+  final double metaFontSize = isWide ? 13.0 : 12.0;
+  final double genreFontSize = isWide ? 11.0 : 10.0;
 
   return Container(
     margin: EdgeInsets.only(bottom: 12),
@@ -811,8 +1062,8 @@ Widget recentUpdateCard(
           borderRadius: BorderRadius.circular(8),
           child: CrossOriginImage(
             imageUrl: safeImageUrl(imageUrl),
-            width: 90,
-            height: 130,
+            width: imgWidth,
+            height: imgHeight,
             fit: BoxFit.cover,
           ),
         ),
@@ -828,7 +1079,7 @@ Widget recentUpdateCard(
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    fontSize: 14,
+                    fontSize: titleFontSize,
                     fontWeight: FontWeight.bold,
                     color: textColor),
               ),
@@ -837,7 +1088,7 @@ Widget recentUpdateCard(
 
               Text(
                 japTitle,
-                style: TextStyle(fontSize: 11, color: subtitleColor),
+                style: TextStyle(fontSize: subFontSize, color: subtitleColor),
               ),
 
               SizedBox(height: 6),
@@ -853,14 +1104,14 @@ Widget recentUpdateCard(
                   Text(
                     rating,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: metaFontSize,
                       color: const Color.fromARGB(255, 255, 217, 0),
                     ),
                   ),
                   SizedBox(width: 10),
                   Text(
                     '• $episodes eps',
-                    style: TextStyle(fontSize: 12, color: subtitleColor),
+                    style: TextStyle(fontSize: metaFontSize, color: subtitleColor),
                   ),
                 ],
               ),
@@ -881,7 +1132,7 @@ Widget recentUpdateCard(
                     child: Text(
                       genre,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: genreFontSize,
                         color: isDark
                             ? const Color.fromARGB(255, 180, 180, 255)
                             : const Color.fromARGB(255, 125, 125, 255),
