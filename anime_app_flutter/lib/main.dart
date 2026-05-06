@@ -1,6 +1,7 @@
 // ignore_for_file: library_private_types_in_public_api
 import 'package:flutter/material.dart';
 import 'navigation.dart';
+import 'services/auth_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,6 +19,12 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool isDarkMode = false;
+
+  // ── Auth state ─────────────────────────────────────────────────────────────
+  AppUser? get currentUser => AuthService.instance.currentUser;
+  bool get isLoggedIn => AuthService.instance.isLoggedIn;
+
+  void notifyAuthChanged() => setState(() {});
 
   void toggleTheme(bool value) {
     setState(() => isDarkMode = value);

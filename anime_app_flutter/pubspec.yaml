@@ -69,6 +69,9 @@ flutter:
     - assets/gif/sakamoto-days.gif
     - assets/gif/jjk.gif
     - assets/gif/solo-leveling.gif
+    - assets/images/luffy_peek.png
+    - assets/images/luffy_cover.png
+    - assets/images/luffy_peek_scared.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

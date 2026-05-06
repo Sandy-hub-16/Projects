@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/groq_recommendation_service.dart';
+import '../../widgets/auth_modals.dart';
 import '../../widgets/cross_origin_image.dart';
 import '../../main.dart';
 
@@ -316,9 +318,86 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         actions: [
-          IconButton(
-              icon: Icon(Icons.notifications_none, color: textColor),
-              onPressed: () {}),
+          Builder(
+            builder: (context) {
+              final appState = MyApp.of(context);
+              final isLoggedIn = appState.isLoggedIn;
+              final user = appState.currentUser;
+
+              if (isLoggedIn && user != null) {
+                // Show user avatar when logged in
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'logout') {
+                        AuthService.instance.logout();
+                        appState.notifyAuthChanged();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        enabled: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.username,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              user.email,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white54 : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'logout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout, size: 18),
+                            SizedBox(width: 8),
+                            Text('Sign Out'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: CircleAvatar(
+                      backgroundColor: const Color.fromARGB(255, 125, 125, 255),
+                      child: Text(
+                        user.username[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              } else {
+                // Show login button when not logged in
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: TextButton.icon(
+                    onPressed: () => showLoginModal(context),
+                    icon: const Icon(Icons.login, size: 18),
+                    label: const Text('Login'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color.fromARGB(255, 125, 125, 255),
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
         ],
         shape: Border(
             bottom: BorderSide(

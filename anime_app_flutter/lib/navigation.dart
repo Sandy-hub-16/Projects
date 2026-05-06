@@ -17,6 +17,23 @@ class BottomNav extends StatefulWidget {
 class _BottomNavState extends State<BottomNav> {
   int selectedIndex = 0;
 
+  // Pages are created once and kept alive across rebuilds.
+  // Moving them here prevents dark-mode toggles from discarding page state
+  // (which caused trending/recent lists to go blank after a theme switch).
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      const HomePage(),
+      const ExplorePage(),
+      const SearchPage(),
+      WatchlistPage(onTabChange: changeTab),
+      const ProfilePage(),
+    ];
+  }
+
   void changeTab(int index) {
     setState(() => selectedIndex = index);
   }
@@ -30,19 +47,11 @@ class _BottomNavState extends State<BottomNav> {
     final isDark = MyApp.of(context).isDarkMode;
     final brandColor = const Color.fromARGB(255, 125, 125, 255);
 
-    final List<Widget> pages = [
-      const HomePage(),
-      const ExplorePage(),
-      const SearchPage(),
-      WatchlistPage(onTabChange: changeTab),
-      const ProfilePage(),
-    ];
-
     final scaffold = Scaffold(
       backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: selectedIndex,
-        children: pages,
+        children: _pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
