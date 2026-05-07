@@ -3,16 +3,19 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
+import '../../main.dart';
 import '../../services/api_service.dart';
 
 class AnimePlayerPage extends StatefulWidget {
   final String title;
   final String videoUrl;
+  final String? synopsis;
 
   const AnimePlayerPage({
     super.key,
     required this.title,
     required this.videoUrl,
+    this.synopsis,
   });
 
   @override
@@ -22,9 +25,12 @@ class AnimePlayerPage extends StatefulWidget {
 class _AnimePlayerPageState extends State<AnimePlayerPage> {
   late YoutubePlayerController ytController;
   bool isControllerReady = false;
+  bool _trailerUnavailable = false;
 
   List episodes = [];
   bool isLoading = true;
+
+  int? _activeEpisodeIndex;
 
   @override
   void initState() {
@@ -38,6 +44,10 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
 
     if (videoId == null) {
       debugPrint("Invalid YouTube URL: ${widget.videoUrl}");
+      setState(() {
+        isControllerReady = false;
+        _trailerUnavailable = true;
+      });
       return;
     }
 
@@ -73,12 +83,38 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
   }
 
   /// Opens [url] in the device browser.
-  /// Falls back to a Crunchyroll search if the url is empty.
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
 
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       debugPrint("Could not launch $url");
+    }
+  }
+
+  /// Handles episode tap: highlights the row, then opens the appropriate URL.
+  Future<void> _onEpisodeTap(int index, dynamic episode) async {
+    setState(() => _activeEpisodeIndex = index);
+
+    final watchUrl = episode['watch_url'] as String? ?? '';
+
+    if (watchUrl.isNotEmpty) {
+      await _launchUrl(watchUrl);
+      return;
+    }
+
+    // No direct watch URL — fall back to streaming site search
+    final streamUrl =
+        '${ApiService.kStreamingSiteBaseUrl}/browser?keyword=${Uri.encodeComponent(widget.title)}';
+
+    final launched = await launchUrl(
+      Uri.parse(streamUrl),
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open streaming site')),
+      );
     }
   }
 
@@ -90,8 +126,20 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
 
   @override
   Widget build(BuildContext context) {
+    // ── Dark-mode theming ────────────────────────────────────────────────────
+    final isDark = MyApp.of(context).isDarkMode;
+    final contentBg = isDark ? const Color(0xFF0D1B4B) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final descColor = isDark ? Colors.grey[400]! : Colors.grey[700]!;
+    const brandColor = Color.fromARGB(255, 125, 125, 255);
+
     final screenHeight = MediaQuery.of(context).size.height;
     final maxVideoHeight = screenHeight * 0.45;
+
+    // About text: use synopsis if provided, otherwise a generic fallback
+    final aboutText = widget.synopsis?.isNotEmpty == true
+        ? widget.synopsis!
+        : 'Watch official trailer and explore episodes.';
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -102,7 +150,7 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
           Positioned.fill(
             child: CustomScrollView(
               slivers: [
-                /// 🎬 VIDEO SECTION
+                /// 🎬 VIDEO SECTION — always black background
                 SliverToBoxAdapter(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxHeight: maxVideoHeight),
@@ -115,7 +163,16 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                                 return SizedBox.expand(child: player);
                               },
                             )
-                          : const Center(child: CircularProgressIndicator()),
+                          : _trailerUnavailable
+                              ? const Center(
+                                  child: Text(
+                                    'Trailer unavailable',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                )
+                              : const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                     ),
                   ),
                 ),
@@ -124,20 +181,15 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                 SliverToBoxAdapter(
                   child: Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.black, Colors.black87],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
+                    color: contentBg,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Title
                         Text(
                           widget.title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: textColor,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
@@ -153,9 +205,7 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                             icon: const Icon(Icons.play_arrow_rounded),
                             label: const Text("Watch on Crunchyroll"),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(
-                                0xFFF47521,
-                              ), // Crunchyroll orange
+                              backgroundColor: brandColor,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
@@ -167,27 +217,30 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
 
                         const SizedBox(height: 20),
 
-                        const Text(
+                        // About heading
+                        Text(
                           "About this anime",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: textColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
 
                         const SizedBox(height: 6),
 
-                        const Text(
-                          "Watch official trailer and explore episodes based on your mood.",
-                          style: TextStyle(color: Colors.grey),
+                        // Synopsis / about body
+                        Text(
+                          aboutText,
+                          style: TextStyle(color: descColor),
                         ),
 
                         const SizedBox(height: 20),
 
-                        const Text(
+                        // Episodes heading
+                        Text(
                           "Episodes",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: textColor,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
@@ -198,63 +251,52 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                         isLoading
                             ? const Center(child: CircularProgressIndicator())
                             : episodes.isEmpty
-                            ? const Text(
-                                "No episodes available",
-                                style: TextStyle(color: Colors.grey),
-                              )
-                            : Column(
-                                children: episodes.map((ep) {
-                                  // If the episode has a direct watch_url, open it
-                                  // in the browser. Otherwise fall back to loading
-                                  // the YouTube trailer in the player above.
-                                  final watchUrl = ep['watch_url'] ?? "";
-                                  final videoUrl = ep['video_url'] ?? "";
+                                ? Text(
+                                    "No episodes available",
+                                    style: TextStyle(color: descColor),
+                                  )
+                                : Column(
+                                    children: episodes
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      final index = entry.key;
+                                      final ep = entry.value;
+                                      final isActive =
+                                          _activeEpisodeIndex == index;
 
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(
-                                      Icons.play_circle_fill,
-                                      color: Colors.white,
-                                    ),
-                                    title: Text(
-                                      ep['title'] ?? "Untitled",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    trailing: watchUrl.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(
-                                              Icons.open_in_new,
-                                              color: Colors.grey,
-                                            ),
-                                            tooltip: "Watch on Crunchyroll",
-                                            onPressed: () =>
-                                                _launchUrl(watchUrl),
-                                          )
-                                        : null,
-                                    onTap: () {
-                                      // If there's a direct watch link, open browser
-                                      if (watchUrl.isNotEmpty) {
-                                        _launchUrl(watchUrl);
-                                        return;
-                                      }
-
-                                      // Otherwise play the YouTube trailer
-                                      final videoId =
-                                          YoutubePlayerController.convertUrlToId(
-                                            videoUrl,
-                                          );
-
-                                      if (videoId != null) {
-                                        ytController.loadVideoById(
-                                          videoId: videoId,
-                                        );
-                                      }
-                                    },
-                                  );
-                                }).toList(),
-                              ),
+                                      return ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        tileColor: isActive
+                                            ? brandColor.withOpacity(0.15)
+                                            : Colors.transparent,
+                                        leading: Icon(
+                                          Icons.play_circle_fill,
+                                          color: isActive
+                                              ? brandColor
+                                              : textColor,
+                                        ),
+                                        title: Text(
+                                          ep['title'] ??
+                                              'Episode ${index + 1}',
+                                          style: TextStyle(
+                                            color: isActive
+                                                ? brandColor
+                                                : textColor,
+                                            fontWeight: isActive
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                        trailing: Icon(
+                                          Icons.open_in_new,
+                                          color: Colors.grey[500],
+                                          size: 16,
+                                        ),
+                                        onTap: () => _onEpisodeTap(index, ep),
+                                      );
+                                    }).toList(),
+                                  ),
                       ],
                     ),
                   ),
@@ -263,7 +305,7 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
             ),
           ),
 
-          /// ◀ BACK BUTTON
+          /// ◀ BACK BUTTON — always dark overlay regardless of theme
           Positioned(
             top: 0,
             left: 10,
