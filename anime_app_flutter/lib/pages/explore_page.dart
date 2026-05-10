@@ -1,8 +1,10 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, prefer_const_constructors_in_immutables
 import 'package:flutter/material.dart';
 import '../main.dart';
+import '../models/search_state.dart';
 import '../services/groq_recommendation_service.dart';
 import '../widgets/cross_origin_image.dart';
+import 'Home/anime_details_page.dart';
 
 const String _placeholder =
     'https://placehold.co/300x450/png?text=Image+Unavailable';
@@ -14,7 +16,9 @@ String _safeUrl(dynamic url) {
 }
 
 class ExplorePage extends StatefulWidget {
-  const ExplorePage({super.key});
+  final SearchState searchState;
+
+  ExplorePage({super.key, required this.searchState});
 
   @override
   State<ExplorePage> createState() => _ExplorePageState();
@@ -37,7 +41,16 @@ class _ExplorePageState extends State<ExplorePage> {
   void initState() {
     super.initState();
     _load();
+    widget.searchState.addListener(_onSearchStateChanged);
   }
+
+  @override
+  void dispose() {
+    widget.searchState.removeListener(_onSearchStateChanged);
+    super.dispose();
+  }
+
+  void _onSearchStateChanged() => setState(() {});
 
   Future<void> _load() async {
     setState(() {
@@ -71,34 +84,63 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   // ── Filtering & sorting ────────────────────────────────────────────────────
-  List<Recommendation> get _filtered {
-    var list = _selectedGenre == 'All'
-        ? List<Recommendation>.from(_allAnime)
-        : _allAnime
-            .where((a) => a.genres.contains(_selectedGenre))
-            .toList();
+  bool get _isSearchRedirect => widget.searchState.isSearchRedirectActive;
+  bool get _isAIRedirect =>
+      _isSearchRedirect && widget.searchState.mode == SearchMode.ai;
 
+  List<Recommendation> get _filtered {
+    List<Recommendation> list;
+
+    if (_isAIRedirect) {
+      // AI mode: use AI results directly
+      list = List<Recommendation>.from(widget.searchState.aiResults ?? []);
+    } else if (_isSearchRedirect) {
+      // Real-time mode: filter _allAnime by query
+      final q = widget.searchState.query.toLowerCase();
+      list = _allAnime.where((a) {
+        return a.title.toLowerCase().contains(q) ||
+            a.genres.any((g) => g.toLowerCase().contains(q));
+      }).toList();
+    } else {
+      // Default: genre filter
+      list = _selectedGenre == 'All'
+          ? List<Recommendation>.from(_allAnime)
+          : _allAnime
+              .where((a) => a.genres.contains(_selectedGenre))
+              .toList();
+    }
+
+    // Apply sort
     switch (_selectedSort) {
       case 'Rating':
         list.sort((a, b) {
           final ra = double.tryParse(a.rating) ?? 0;
           final rb = double.tryParse(b.rating) ?? 0;
-          return rb.compareTo(ra); // descending
+          return rb.compareTo(ra);
         });
         break;
       case 'Title':
         list.sort((a, b) => a.title.compareTo(b.title));
         break;
       case 'Year':
-        // episodes field is reused for year in explore — we store year
-        // separately via the japaneseTitle hack; instead we just sort by
-        // episodes count as a proxy since year isn't in the model yet.
-        // The AI returns year in the prompt but the model maps it to episodes.
-        // We sort alphabetically as a safe fallback.
         list.sort((a, b) => a.title.compareTo(b.title));
         break;
     }
     return list;
+  }
+
+  // ── Result count label ─────────────────────────────────────────────────────
+  String get _resultCountLabel {
+    final count = _filtered.length;
+    if (_isAIRedirect) {
+      return count == 0
+          ? 'No anime found, try a different description'
+          : 'AI found $count anime matching your description';
+    }
+    if (_isSearchRedirect) {
+      return '$count results for \'${widget.searchState.query}\'';
+    }
+    return '$count results';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -214,7 +256,7 @@ class _ExplorePageState extends State<ExplorePage> {
                               ],
                             ),
                             Text(
-                              '${filtered.length} results',
+                              _resultCountLabel,
                               style: TextStyle(
                                   fontSize: 13, color: subtitleColor),
                             ),
@@ -223,24 +265,26 @@ class _ExplorePageState extends State<ExplorePage> {
                         const SizedBox(height: 16),
 
                         // ── Genre chips ─────────────────────────────────────
-                        Text(
-                          'Genre',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'Naruto',
-                            color: textColor,
+                        if (!_isSearchRedirect) ...[
+                          Text(
+                            'Genre',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontFamily: 'Naruto',
+                              color: textColor,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: _genres
-                                .map((g) => _genreButton(g, isDark))
-                                .toList(),
+                          const SizedBox(height: 10),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _genres
+                                  .map((g) => _genreButton(g, isDark))
+                                  .toList(),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 16),
+                        ],
 
                         // ── Sort buttons ────────────────────────────────────
                         Text(
@@ -266,7 +310,9 @@ class _ExplorePageState extends State<ExplorePage> {
                                     const EdgeInsets.symmetric(vertical: 40),
                                 child: Center(
                                   child: Text(
-                                    'No anime found for this genre.',
+                                    _isAIRedirect
+                                        ? 'No anime found, try a different description'
+                                        : 'No anime found for this genre.',
                                     style: TextStyle(color: subtitleColor),
                                   ),
                                 ),
@@ -367,60 +413,74 @@ class _ExplorePageState extends State<ExplorePage> {
     final titleFontSize = isWide ? 14.0 : 12.0;
     final metaFontSize = isWide ? 12.0 : 11.0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Poster image ──────────────────────────────────────────────────
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CrossOriginImage(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AnimeDetailsPage(
+              title: anime.title,
               imageUrl: _safeUrl(anime.imageUrl),
-              fit: BoxFit.cover,
-              width: double.infinity,
+              rating: anime.rating,
             ),
           ),
-        ),
-        const SizedBox(height: 6),
-
-        // ── Title ─────────────────────────────────────────────────────────
-        Text(
-          anime.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: titleFontSize,
-            color: textColor,
-          ),
-        ),
-        const SizedBox(height: 3),
-
-        // ── Rating + episodes row ─────────────────────────────────────────
-        Row(
-          children: [
-            const Icon(Icons.star,
-                color: Color.fromARGB(255, 255, 217, 0), size: 13),
-            const SizedBox(width: 3),
-            Text(
-              anime.rating,
-              style: TextStyle(
-                fontSize: metaFontSize,
-                fontWeight: FontWeight.bold,
-                color: const Color.fromARGB(255, 255, 217, 0),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Poster image ────────────────────────────────────────────────
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CrossOriginImage(
+                imageUrl: _safeUrl(anime.imageUrl),
+                fit: BoxFit.cover,
+                width: double.infinity,
               ),
             ),
-            const Spacer(),
-            Text(
-              anime.episodes == 'N/A'
-                  ? 'N/A'
-                  : '${anime.episodes} eps',
-              style: TextStyle(
-                  fontSize: metaFontSize, color: subtitleColor),
+          ),
+          const SizedBox(height: 6),
+
+          // ── Title ───────────────────────────────────────────────────────
+          Text(
+            anime.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: titleFontSize,
+              color: textColor,
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(height: 3),
+
+          // ── Rating + episodes row ────────────────────────────────────────
+          Row(
+            children: [
+              const Icon(Icons.star,
+                  color: Color.fromARGB(255, 255, 217, 0), size: 13),
+              const SizedBox(width: 3),
+              Text(
+                anime.rating,
+                style: TextStyle(
+                  fontSize: metaFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 255, 217, 0),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                anime.episodes == 'N/A'
+                    ? 'N/A'
+                    : '${anime.episodes} eps',
+                style: TextStyle(
+                    fontSize: metaFontSize, color: subtitleColor),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

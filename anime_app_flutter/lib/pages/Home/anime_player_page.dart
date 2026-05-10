@@ -26,6 +26,7 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
   late YoutubePlayerController ytController;
   bool isControllerReady = false;
   bool _trailerUnavailable = false;
+  String? _trailerSearchUrl;
 
   List episodes = [];
   bool isLoading = true;
@@ -40,13 +41,27 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
   }
 
   void initPlayer() {
-    final videoId = YoutubePlayerController.convertUrlToId(widget.videoUrl);
+    final url = widget.videoUrl;
 
-    if (videoId == null) {
-      debugPrint("Invalid YouTube URL: ${widget.videoUrl}");
+    // YouTube search URLs can't be embedded — handle separately
+    if (url.contains('youtube.com/results')) {
       setState(() {
         isControllerReady = false;
         _trailerUnavailable = true;
+        _trailerSearchUrl = url;
+      });
+      return;
+    }
+
+    final videoId = YoutubePlayerController.convertUrlToId(url);
+
+    if (videoId == null) {
+      debugPrint("Invalid YouTube URL: $url");
+      setState(() {
+        isControllerReady = false;
+        _trailerUnavailable = true;
+        _trailerSearchUrl =
+            'https://www.youtube.com/results?search_query=${Uri.encodeComponent('${widget.title} official trailer')}';
       });
       return;
     }
@@ -74,12 +89,15 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
   }
 
   Future<void> loadEpisodes() async {
-    final data = await ApiService.fetchEpisodes(widget.title);
-
-    setState(() {
-      episodes = data;
-      isLoading = false;
-    });
+    try {
+      final data = await ApiService.fetchEpisodes(widget.title);
+      setState(() {
+        episodes = data;
+        isLoading = false;
+      });
+    } catch (_) {
+      setState(() => isLoading = false);
+    }
   }
 
   /// Opens [url] in the device browser.
@@ -164,10 +182,37 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                               },
                             )
                           : _trailerUnavailable
-                              ? const Center(
-                                  child: Text(
-                                    'Trailer unavailable',
-                                    style: TextStyle(color: Colors.white70),
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.play_circle_outline,
+                                          color: Colors.white38, size: 48),
+                                      const SizedBox(height: 8),
+                                      const Text(
+                                        'No embedded trailer available',
+                                        style: TextStyle(color: Colors.white60),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      ElevatedButton.icon(
+                                        onPressed: () {
+                                          final url = _trailerSearchUrl ??
+                                              'https://www.youtube.com/results?search_query=${Uri.encodeComponent('${widget.title} official trailer')}';
+                                          launchUrl(Uri.parse(url),
+                                              mode: LaunchMode
+                                                  .externalApplication);
+                                        },
+                                        icon: const Icon(Icons.search,
+                                            size: 16),
+                                        label: const Text('Search on YouTube'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red[700],
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 10),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 )
                               : const Center(
@@ -277,8 +322,7 @@ class _AnimePlayerPageState extends State<AnimePlayerPage> {
                                               : textColor,
                                         ),
                                         title: Text(
-                                          ep['title'] ??
-                                              'Episode ${index + 1}',
+                                          "Episode ${index + 1}: ${ep['title']}",
                                           style: TextStyle(
                                             color: isActive
                                                 ? brandColor

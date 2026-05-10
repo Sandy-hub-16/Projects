@@ -53,14 +53,19 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage> {
     }
   }
 
-  /// Returns the YouTube watch URL from fetched data, falling back to the
-  /// hardcoded trailer map when the Jikan result has no trailer_youtube_id.
+  /// Returns the YouTube watch URL from fetched data.
+  /// Priority: Jikan trailer_youtube_id → YouTube search URL as fallback
+  /// so there is always something to play.
   String get _trailerUrl {
     final youtubeId = _animeData['trailer_youtube_id'] as String?;
     if (youtubeId != null && youtubeId.isNotEmpty) {
       return 'https://www.youtube.com/watch?v=$youtubeId';
     }
-    return _trailerMap[widget.title] ?? '';
+    // Fallback 1: hardcoded map for known titles
+    final mapped = _trailerMap[widget.title];
+    if (mapped != null && mapped.isNotEmpty) return mapped;
+    // Fallback 2: YouTube search — always returns results
+    return 'https://www.youtube.com/results?search_query=${Uri.encodeComponent('${widget.title} official trailer')}';
   }
 
   @override
@@ -85,33 +90,47 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage> {
             // ── Hero image with gradient overlay ──────────────────────────
             Stack(
               children: [
-                CrossOriginImage(
-                  imageUrl: widget.imageUrl,
+                // Clip to fixed height, align to top so character faces show
+                SizedBox(
                   width: double.infinity,
-                  height: 280,
-                  fit: BoxFit.cover,
+                  height: 320,
+                  child: ClipRect(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: CrossOriginImage(
+                        imageUrl: widget.imageUrl,
+                        width: double.infinity,
+                        height: 320,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
                 ),
                 // Gradient: transparent → black, covering the bottom 40%
                 Container(
-                  height: 280,
+                  height: 320,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Colors.transparent, Colors.black],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      stops: [0.6, 1.0],
+                      stops: [0.55, 1.0],
                     ),
                   ),
                 ),
                 Positioned(
                   bottom: 16,
                   left: 16,
+                  right: 16,
                   child: Text(
                     widget.title,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(blurRadius: 8, color: Colors.black),
+                      ],
                     ),
                   ),
                 ),

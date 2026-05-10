@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'main.dart';
+import 'models/search_state.dart';
 import 'pages/Home/home_page.dart';
 import 'pages/explore_page.dart';
 import 'pages/search_page.dart';
@@ -17,6 +18,8 @@ class BottomNav extends StatefulWidget {
 class _BottomNavState extends State<BottomNav> {
   int selectedIndex = 0;
 
+  final SearchState _searchState = SearchState();
+
   // Pages are created once and kept alive across rebuilds.
   // Moving them here prevents dark-mode toggles from discarding page state
   // (which caused trending/recent lists to go blank after a theme switch).
@@ -27,11 +30,17 @@ class _BottomNavState extends State<BottomNav> {
     super.initState();
     _pages = [
       const HomePage(),
-      const ExplorePage(),
-      const SearchPage(),
+      ExplorePage(searchState: _searchState),
+      SearchPage(searchState: _searchState, onTabChange: changeTab),
       WatchlistPage(onTabChange: changeTab),
       const ProfilePage(),
     ];
+  }
+
+  @override
+  void dispose() {
+    _searchState.dispose();
+    super.dispose();
   }
 
   void changeTab(int index) {

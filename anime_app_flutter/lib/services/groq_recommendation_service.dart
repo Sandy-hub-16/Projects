@@ -72,6 +72,11 @@ class GroqRecommendationService {
   static const String _openRouterApiKey =
       String.fromEnvironment('OPENROUTER_API_KEY');
 
+  // Public accessors so other services (e.g. ApiService) can reuse the keys
+  // without duplicating the --dart-define wiring.
+  static String get groqApiKey => _groqApiKey;
+  static String get openRouterApiKey => _openRouterApiKey;
+
   // In-memory cache: emoji → recommendation list.
   static final Map<String, List<Recommendation>> _cache = {};
 

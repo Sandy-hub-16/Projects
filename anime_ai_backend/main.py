@@ -115,6 +115,33 @@ Example:
 ]"""
 
 
+def build_search_prompt(query: str) -> str:
+    return f"""You are an anime search assistant.
+The user is searching for anime matching this description: {query}
+
+Return between 5 and 20 anime results depending on how many closely match the query.
+Return ONLY a valid JSON array with no extra text, markdown, or explanation.
+Each item must have these exact fields:
+- "title": English title (string)
+- "japanese_title": Japanese/romaji title (string)
+- "rating": score out of 10 (number e.g. 8.5, or "N/A" if unknown)
+- "episodes": number of episodes (integer or "N/A" if unknown/ongoing)
+- "image_url": always leave as empty string ""
+- "genres": array of genre strings (e.g. ["Action", "Comedy"])
+
+Example:
+[
+  {{
+    "title": "My Hero Academia",
+    "japanese_title": "Boku no Hero Academia",
+    "rating": 8.5,
+    "episodes": 113,
+    "image_url": "",
+    "genres": ["Action", "Superhero", "School"]
+  }}
+]"""
+
+
 # -------------------- AI CALLERS --------------------
 
 def call_groq(prompt: str) -> list:
@@ -207,21 +234,21 @@ episodes_db = {
     "Jujutsu Kaisen": [
         {
             "episode": 1,
-            "title": "Trailer",
+            "title": "Ryomen Sukuna",
             "video_url": "https://www.youtube.com/watch?v=MPfZhgLiK6w"
         }
     ],
     "Sakamoto Days": [
         {
             "episode": 1,
-            "title": "Trailer",
+            "title": "Taro Sakamoto",
             "video_url": "https://www.youtube.com/watch?v=2p0r2xg5l1E"
         }
     ],
     "Solo Leveling Season 2": [
         {
             "episode": 1,
-            "title": "Trailer",
+            "title": "Arise",
             "video_url": "https://www.youtube.com/watch?v=6U0s0dF5e8c"
         }
     ]
@@ -230,7 +257,53 @@ episodes_db = {
 
 @app.get("/episodes")
 def get_episodes(title: str):
-    return episodes_db.get(title, [])
+    """
+    Fetch episode list for a given anime title.
+    1. Search Jikan for the anime to get its MAL ID.
+    2. Fetch up to 100 episodes from Jikan's episodes endpoint.
+    3. Fall back to the local episodes_db if Jikan returns nothing.
+    """
+    try:
+        # Step 1: resolve MAL ID from title
+        search_url = f"https://api.jikan.moe/v4/anime?q={requests.utils.quote(title)}&limit=1"
+        search_resp = requests.get(search_url, timeout=10)
+        search_resp.raise_for_status()
+        search_data = search_resp.json()
+
+        results = search_data.get("data", [])
+        if not results:
+            return episodes_db.get(title, [])
+
+        mal_id = results[0]["mal_id"]
+
+        # Step 2: fetch episodes from Jikan
+        eps_url = f"https://api.jikan.moe/v4/anime/{mal_id}/episodes"
+        eps_resp = requests.get(eps_url, timeout=10)
+        eps_resp.raise_for_status()
+        eps_data = eps_resp.json()
+
+        jikan_episodes = eps_data.get("data", [])
+        if not jikan_episodes:
+            return episodes_db.get(title, [])
+
+        # Step 3: format into the shape the Flutter app expects
+        formatted = []
+        for ep in jikan_episodes:
+            ep_num = ep.get("mal_id") or ep.get("episode_id") or len(formatted) + 1
+            ep_title = ep.get("title") or f"Episode {ep_num}"
+            formatted.append({
+                "episode": ep_num,
+                "title": ep_title,
+                "video_url": "",   # no direct video — tapping opens streaming site
+                "watch_url": "",   # no direct watch URL — tapping opens streaming site
+            })
+
+        return formatted
+
+    except Exception as e:
+        print(f"[episodes] Jikan fetch failed for '{title}': {e}")
+        # Fall back to local DB
+        return episodes_db.get(title, [])
 
 
 @app.get("/anime/enrich")
@@ -268,6 +341,36 @@ def recommend(mood: str):
     formatted = format_ai_response(raw_list)
     enriched  = enrich_images(formatted)
     return enriched
+
+
+@app.get("/search/ai")
+def search_ai(query: str = ""):
+    if not query or not query.strip():
+        raise HTTPException(status_code=400, detail="query parameter is required")
+
+    prompt = build_search_prompt(query)
+    raw_list = None
+
+    # Primary: Groq
+    try:
+        raw_list = call_groq(prompt)
+    except Exception as groq_err:
+        print(f"[search/ai] Groq failed: {groq_err}")
+
+    # Fallback: OpenRouter
+    if raw_list is None:
+        try:
+            raw_list = call_openrouter(prompt)
+        except Exception as or_err:
+            print(f"[search/ai] OpenRouter failed: {or_err}")
+
+    if raw_list is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Both Groq and OpenRouter are unavailable. Please try again later."
+        )
+
+    return format_ai_response(raw_list)
 
 
 @app.get("/recent")

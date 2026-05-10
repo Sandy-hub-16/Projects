@@ -414,36 +414,26 @@ class _HomePageState extends State<HomePage> {
 
                   child: PageView(
                     controller: PageController(
-                      viewportFraction: 0.85,
-                      initialPage: 1,
+                      viewportFraction: 0.92,
+                      initialPage: 0,
                     ),
-                    children: [
-                      featuredCard(
-                        context,
-                        'Jujutsu Kaisen',
-                        'https://m.media-amazon.com/images/M/MV5BMjBlNTExMDAtMWZjZi00MDc5LWFkMjgtZDU0ZWQ5ODk3YWY5XkEyXkFqcGc@._V1_.jpg',
-                        '9.0',
-                        'assets/gif/jjk.gif',
-                        isWide: isWide,
-                      ),
-
-                      featuredCard(
-                        context,
-                        'Sakamoto Days',
-                        'https://dnm.nflximg.net/api/v6/2DuQlx0fM4wd1nzqm5BFBi6ILa8/AAAAQSHBQVhtjd1LYiSNxPN9bLPFlbDo3swK9G6TivIEAPysUo0_-cJ57S-EcafNC0_0O4vQD7HGMJIUvoPeWmgZfbLDxVyyPdzBx19T8i2cS8YVyaQmeUx7uvrraloCJdNI2SJ4QSMUe9W1oWEqzXm91x57.jpg?r=776',
-                        '9.2',
-                        'assets/gif/sakamoto-days.gif',
-                        isWide: isWide,
-                      ),
-                      featuredCard(
-                        context,
-                        'Solo Leveling Season 2',
-                        'https://hobiverse.com.vn/cdn/shop/articles/Solo-Leveling-phan-2_520x500_520x500_1c67bc50-8a89-42ec-9740-ef951b982ffd.jpg?v=1742091242&width=360',
-                        '8.9',
-                        'assets/gif/solo-leveling.gif',
-                        isWide: isWide,
-                      ),
-                    ],
+                    children: isLoading
+                        ? [
+                            const Center(child: CircularProgressIndicator()),
+                          ]
+                        : trendingList.take(5).map((anime) {
+                            final title = anime['title'] as String? ?? 'Unknown';
+                            final imageUrl = safeImageUrl(anime['image_url']);
+                            final rating = anime['rating']?.toString() ?? 'N/A';
+                            return featuredCard(
+                              context,
+                              title,
+                              imageUrl,
+                              rating,
+                              '', // no gif for dynamic cards
+                              isWide: isWide,
+                            );
+                          }).toList(),
                   ),
                 ),
 
@@ -888,8 +878,8 @@ Widget featuredCard(BuildContext context,
   final double titleFontSize = isWide ? 26.0 : 22.0;
 
   return Container(
-    margin: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-    width: isWide ? 420 : 320,
+    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+    width: isWide ? 440 : double.infinity,
     height: cardHeight,
 
     child: MouseRegion(
@@ -903,11 +893,20 @@ Widget featuredCard(BuildContext context,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(15),
-                child: CrossOriginImage(
-                  imageUrl: safeImageUrl(imageUrl),
+                child: SizedBox(
                   width: double.infinity,
                   height: double.infinity,
-                  fit: BoxFit.cover,
+                  child: ClipRect(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: CrossOriginImage(
+                        imageUrl: safeImageUrl(imageUrl),
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
                 ),
               ),
 
