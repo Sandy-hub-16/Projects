@@ -85,10 +85,8 @@ class _SearchPageState extends State<SearchPage> {
                             MaterialPageRoute(
                               builder: (_) => AnimeDetailsPage(
                                 title: (anime['title'] as String?) ?? '',
-                                imageUrl:
-                                    (anime['image_url'] as String?) ?? '',
-                                rating:
-                                    anime['rating']?.toString() ?? 'N/A',
+                                imageUrl: (anime['image_url'] as String?) ?? '',
+                                rating: anime['rating']?.toString() ?? 'N/A',
                               ),
                             ),
                           );
@@ -119,12 +117,27 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
-  void _onSubmit() {
+  Future<void> _onSubmit() async {
     final query = _controller.text.trim();
+
     if (query.isEmpty) return;
-    // Both real-time and AI mode use AI search on submit for best results.
-    // The dropdown (while typing) still uses Jikan for fast suggestions.
-    _runAISearch(query);
+
+    // AI SEARCH
+    if (_isAIMode) {
+      _runAISearch(query);
+      return;
+    }
+
+    // NORMAL SEARCH → JIKAN
+    final results = await ApiService.searchAnime(query);
+
+    if (!mounted) return;
+
+    widget.searchState.activateRealtimeRedirect(query, results);
+
+    widget.onTabChange(1);
+
+    _removeDropdown();
   }
 
   Future<void> _runAISearch(String query) async {
@@ -164,8 +177,7 @@ class _SearchPageState extends State<SearchPage> {
     final String hintText = _isAIMode
         ? 'Describe an anime... (e.g. MC with special powers)'
         : 'Search anime...';
-    final IconData prefixIcon =
-        _isAIMode ? Icons.auto_awesome : Icons.search;
+    final IconData prefixIcon = _isAIMode ? Icons.auto_awesome : Icons.search;
     final Color prefixIconColor = _isAIMode ? brandColor : subtitleColor;
 
     return TapRegion(
@@ -209,35 +221,36 @@ class _SearchPageState extends State<SearchPage> {
                               Text(
                                 'AI is searching...',
                                 style: TextStyle(
-                                    color: brandColor, fontSize: 14),
+                                  color: brandColor,
+                                  fontSize: 14,
+                                ),
                               ),
                             ],
                           )
                         : TextField(
                             controller: _controller,
                             style: TextStyle(color: textColor),
-                            onChanged:
-                                _isAIMode ? null : _onSearchChanged,
+                            onChanged: _isAIMode ? null : _onSearchChanged,
                             onSubmitted: (_) => _onSubmit(),
                             decoration: InputDecoration(
                               hintText: hintText,
                               hintStyle: TextStyle(color: subtitleColor),
-                              prefixIcon: Icon(prefixIcon,
-                                  color: prefixIconColor),
+                              prefixIcon: Icon(
+                                prefixIcon,
+                                color: prefixIconColor,
+                              ),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _isAIMode
-                                      ? Icons.send
-                                      : Icons.arrow_forward,
-                                  color: _isAIMode
-                                      ? brandColor
-                                      : subtitleColor,
+                                  _isAIMode ? Icons.send : Icons.arrow_forward,
+                                  color: _isAIMode ? brandColor : subtitleColor,
                                 ),
                                 onPressed: _onSubmit,
                               ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 14, horizontal: 10),
+                                vertical: 14,
+                                horizontal: 10,
+                              ),
                             ),
                           ),
                   ),
@@ -258,7 +271,9 @@ class _SearchPageState extends State<SearchPage> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: _isAIMode ? brandColor : searchBg,
                     borderRadius: BorderRadius.circular(10),
@@ -268,7 +283,7 @@ class _SearchPageState extends State<SearchPage> {
                               color: brandColor.withOpacity(0.4),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
-                            )
+                            ),
                           ]
                         : null,
                   ),
@@ -305,9 +320,8 @@ class _SearchPageState extends State<SearchPage> {
         body: _aiError != null
             ? _buildErrorBody(textColor, brandColor)
             : _isAIMode
-                ? _buildAIIdleBody(
-                    isDark, textColor, subtitleColor, brandColor)
-                : _buildRealtimeBody(isDark, textColor),
+            ? _buildAIIdleBody(isDark, textColor, subtitleColor, brandColor)
+            : _buildRealtimeBody(isDark, textColor),
       ),
     );
   }
@@ -321,8 +335,7 @@ class _SearchPageState extends State<SearchPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline,
-                color: Colors.redAccent, size: 48),
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
             const SizedBox(height: 12),
             Text(
               _aiError!,
@@ -363,18 +376,17 @@ class _SearchPageState extends State<SearchPage> {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: brandColor
-                        .withOpacity(isDark ? 0.15 : 0.08),
+                    color: brandColor.withOpacity(isDark ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: brandColor.withOpacity(0.3)),
+                    border: Border.all(color: brandColor.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.auto_awesome,
-                          color: brandColor, size: 18),
+                      Icon(Icons.auto_awesome, color: brandColor, size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -402,46 +414,51 @@ class _SearchPageState extends State<SearchPage> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    'MC with special powers',
-                    'girl with blue hair',
-                    'school romance',
-                    'robot anime',
-                    'anime with dogs',
-                    'dark fantasy',
-                    'time travel',
-                    'isekai adventure',
-                  ]
-                      .map(
-                        (hint) => GestureDetector(
-                          onTap: () {
-                            _controller.text = hint;
-                            _controller.selection =
-                                TextSelection.fromPosition(
-                              TextPosition(
-                                  offset: _controller.text.length),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF1a2a5e)
-                                  : Colors.grey[200],
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: brandColor.withOpacity(0.35)),
+                  children:
+                      [
+                            'MC with special powers',
+                            'girl with blue hair',
+                            'school romance',
+                            'robot anime',
+                            'anime with dogs',
+                            'dark fantasy',
+                            'time travel',
+                            'isekai adventure',
+                          ]
+                          .map(
+                            (hint) => GestureDetector(
+                              onTap: () {
+                                _controller.text = hint;
+                                _controller
+                                    .selection = TextSelection.fromPosition(
+                                  TextPosition(offset: _controller.text.length),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF1a2a5e)
+                                      : Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: brandColor.withOpacity(0.35),
+                                  ),
+                                ),
+                                child: Text(
+                                  hint,
+                                  style: TextStyle(
+                                    color: brandColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
                             ),
-                            child: Text(
-                              hint,
-                              style: TextStyle(
-                                  color: brandColor, fontSize: 12),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
+                          )
+                          .toList(),
                 ),
               ],
             ),
@@ -467,8 +484,7 @@ class _SearchPageState extends State<SearchPage> {
               Row(
                 children: [
                   const SizedBox(width: 10),
-                  const Icon(Icons.trending_up,
-                      color: brandColor, size: 24),
+                  const Icon(Icons.trending_up, color: brandColor, size: 24),
                   const SizedBox(width: 6),
                   Text(
                     'Popular Searches',
@@ -507,14 +523,19 @@ class _SearchPageState extends State<SearchPage> {
     return Container(
       margin: const EdgeInsets.only(right: 10, top: 10, bottom: 10),
       child: ElevatedButton(
-        onPressed: () {
+        onPressed: () async {
           _controller.text = genre;
-          widget.searchState.activateRealtimeRedirect(genre);
+
+          final results = await ApiService.searchAnime(genre);
+
+          if (!mounted) return;
+
+          widget.searchState.activateRealtimeRedirect(genre, results);
+
           widget.onTabChange(1);
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor:
-              isDark ? const Color(0xFF1a2a5e) : Colors.white,
+          backgroundColor: isDark ? const Color(0xFF1a2a5e) : Colors.white,
           foregroundColor: isDark ? Colors.white70 : Colors.black87,
           elevation: 0,
           side: BorderSide(
@@ -525,10 +546,7 @@ class _SearchPageState extends State<SearchPage> {
             borderRadius: BorderRadius.circular(20),
           ),
         ),
-        child: Text(
-          genre,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        child: Text(genre, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -581,12 +599,13 @@ class _DropdownResultTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: textColor, fontWeight: FontWeight.w600),
+                      color: textColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    ((anime['genres'] as List?)?.take(2).join(', ')) ??
-                        '',
+                    ((anime['genres'] as List?)?.take(2).join(', ')) ?? '',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: subtitleColor, fontSize: 11),

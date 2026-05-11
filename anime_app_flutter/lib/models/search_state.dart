@@ -13,6 +13,7 @@ class SearchState extends ChangeNotifier {
   SearchMode _mode = SearchMode.realtime;
   List<Recommendation>? _aiResults; // null = not in AI redirect mode
   bool _isSearchRedirectActive = false;
+  List<Map<String, dynamic>> _searchResults = [];
 
   // ── Getters ──────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ class SearchState extends ChangeNotifier {
   SearchMode get mode => _mode;
   List<Recommendation>? get aiResults => _aiResults;
   bool get isSearchRedirectActive => _isSearchRedirectActive;
+  List<Map<String, dynamic>> get searchResults => _searchResults;
 
   // ── Mutators ─────────────────────────────────────────────────────────────
 
@@ -33,11 +35,18 @@ class SearchState extends ChangeNotifier {
   /// Called by [SearchPage] when the user submits a real-time search.
   /// Activates search-redirect mode on [ExplorePage] with a Jikan-filtered
   /// result set.
-  void activateRealtimeRedirect(String query) {
+  void activateRealtimeRedirect(
+    String query,
+    List<Map<String, dynamic>> results,
+  ) {
     _query = query;
     _mode = SearchMode.realtime;
     _aiResults = null;
+
+    _searchResults = results;
+
     _isSearchRedirectActive = query.isNotEmpty;
+
     notifyListeners();
   }
 
@@ -59,6 +68,7 @@ class SearchState extends ChangeNotifier {
     _query = '';
     _mode = SearchMode.realtime;
     _aiResults = null;
+    _searchResults = [];
     _isSearchRedirectActive = false;
     notifyListeners();
   }

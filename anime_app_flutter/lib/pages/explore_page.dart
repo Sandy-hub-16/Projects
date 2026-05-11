@@ -92,25 +92,34 @@ class _ExplorePageState extends State<ExplorePage> {
     List<Recommendation> list;
 
     if (_isAIRedirect) {
-      // AI mode: use AI results directly
+      // AI mode
       list = List<Recommendation>.from(widget.searchState.aiResults ?? []);
     } else if (_isSearchRedirect) {
-      // Real-time mode: filter _allAnime by query
-      final q = widget.searchState.query.toLowerCase();
-      list = _allAnime.where((a) {
-        return a.title.toLowerCase().contains(q) ||
-            a.genres.any((g) => g.toLowerCase().contains(q));
-      }).toList();
+      // Search mode
+      list = widget.searchState.searchResults
+          .map(
+            (item) => Recommendation(
+              title: item['title'] ?? '',
+              japaneseTitle: item['japanese_title'] ?? '',
+              rating: item['rating']?.toString() ?? 'N/A',
+              episodes: item['episodes']?.toString() ?? 'N/A',
+              imageUrl: item['image_url'] ?? '',
+              genres: ((item['genres'] as List?) ?? [])
+                  .map((g) => g.toString())
+                  .toList(),
+            ),
+          )
+          .toList();
     } else {
-      // Default: genre filter
+      // Default explore mode
       list = _selectedGenre == 'All'
           ? List<Recommendation>.from(_allAnime)
-          : _allAnime
-              .where((a) => a.genres.contains(_selectedGenre))
-              .toList();
+          : _allAnime.where((a) {
+              return a.genres.contains(_selectedGenre);
+            }).toList();
     }
 
-    // Apply sort
+    // Sort
     switch (_selectedSort) {
       case 'Rating':
         list.sort((a, b) {
@@ -119,13 +128,16 @@ class _ExplorePageState extends State<ExplorePage> {
           return rb.compareTo(ra);
         });
         break;
+
       case 'Title':
         list.sort((a, b) => a.title.compareTo(b.title));
         break;
+
       case 'Year':
         list.sort((a, b) => a.title.compareTo(b.title));
         break;
     }
+
     return list;
   }
 
@@ -199,150 +211,153 @@ class _ExplorePageState extends State<ExplorePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.error_outline,
-                            color: Colors.redAccent, size: 48),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Failed to load anime',
-                          style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16),
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: _load,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: brandColor),
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                      size: 48,
                     ),
-                  ),
-                )
-              : SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Failed to load anime',
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: brandColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
 
-                        // ── Header row ──────────────────────────────────────
+                    // ── Header row ──────────────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.filter_list,
-                                    color: brandColor, size: 24),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Filter',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontFamily: 'Naruto',
-                                    fontWeight: FontWeight.bold,
-                                    color: brandColor,
-                                  ),
-                                ),
-                              ],
+                            const Icon(
+                              Icons.filter_list,
+                              color: brandColor,
+                              size: 24,
                             ),
+                            const SizedBox(width: 6),
                             Text(
-                              _resultCountLabel,
+                              'Filter',
                               style: TextStyle(
-                                  fontSize: 13, color: subtitleColor),
+                                fontSize: 16,
+                                fontFamily: 'Naruto',
+                                fontWeight: FontWeight.bold,
+                                color: brandColor,
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-
-                        // ── Genre chips ─────────────────────────────────────
-                        if (!_isSearchRedirect) ...[
-                          Text(
-                            'Genre',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontFamily: 'Naruto',
-                              color: textColor,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: _genres
-                                  .map((g) => _genreButton(g, isDark))
-                                  .toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // ── Sort buttons ────────────────────────────────────
                         Text(
-                          'Sort by',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'Naruto',
-                            color: textColor,
-                          ),
+                          _resultCountLabel,
+                          style: TextStyle(fontSize: 13, color: subtitleColor),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: ['Rating', 'Year', 'Title']
-                              .map((s) => _sortButton(s, isDark))
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Genre chips ─────────────────────────────────────
+                    if (!_isSearchRedirect) ...[
+                      Text(
+                        'Genre',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontFamily: 'Naruto',
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _genres
+                              .map((g) => _genreButton(g, isDark))
                               .toList(),
                         ),
-                        const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
-                        // ── Grid ────────────────────────────────────────────
-                        filtered.isEmpty
-                            ? Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 40),
-                                child: Center(
-                                  child: Text(
-                                    _isAIRedirect
-                                        ? 'No anime found, try a different description'
-                                        : 'No anime found for this genre.',
-                                    style: TextStyle(color: subtitleColor),
-                                  ),
-                                ),
-                              )
-                            : GridView.builder(
-                                shrinkWrap: true,
-                                physics:
-                                    const NeverScrollableScrollPhysics(),
-                                itemCount: filtered.length,
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
+                    // ── Sort buttons ────────────────────────────────────
+                    Text(
+                      'Sort by',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontFamily: 'Naruto',
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        'Rating',
+                        'Year',
+                        'Title',
+                      ].map((s) => _sortButton(s, isDark)).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Grid ────────────────────────────────────────────
+                    filtered.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Center(
+                              child: Text(
+                                _isAIRedirect
+                                    ? 'No anime found, try a different description'
+                                    : 'No anime found for this genre.',
+                                style: TextStyle(color: subtitleColor),
+                              ),
+                            ),
+                          )
+                        : GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filtered.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: crossAxisCount,
                                   crossAxisSpacing: isWide ? 16 : 12,
                                   mainAxisSpacing: isWide ? 16 : 12,
                                   childAspectRatio: childAspectRatio,
                                 ),
-                                itemBuilder: (context, index) {
-                                  final anime = filtered[index];
-                                  return _animeCard(
-                                    anime,
-                                    isDark,
-                                    isWide,
-                                  );
-                                },
-                              ),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
+                            itemBuilder: (context, index) {
+                              final anime = filtered[index];
+                              return _animeCard(anime, isDark, isWide);
+                            },
+                          ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
@@ -361,18 +376,16 @@ class _ExplorePageState extends State<ExplorePage> {
           foregroundColor: isSelected
               ? Colors.white
               : (isDark
-                  ? const Color.fromARGB(255, 160, 160, 255)
-                  : const Color.fromARGB(255, 125, 125, 255)),
+                    ? const Color.fromARGB(255, 160, 160, 255)
+                    : const Color.fromARGB(255, 125, 125, 255)),
           elevation: 0,
-          side: const BorderSide(
-              color: Color.fromARGB(255, 125, 125, 255)),
+          side: const BorderSide(color: Color.fromARGB(255, 125, 125, 255)),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
-        child: Text(genre,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        child: Text(genre, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -390,26 +403,23 @@ class _ExplorePageState extends State<ExplorePage> {
           foregroundColor: isSelected
               ? Colors.white
               : (isDark
-                  ? const Color.fromARGB(255, 160, 160, 255)
-                  : const Color.fromARGB(255, 125, 125, 255)),
+                    ? const Color.fromARGB(255, 160, 160, 255)
+                    : const Color.fromARGB(255, 125, 125, 255)),
           elevation: 0,
-          side: const BorderSide(
-              color: Color.fromARGB(255, 125, 125, 255)),
+          side: const BorderSide(color: Color.fromARGB(255, 125, 125, 255)),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
-        child: Text(sort,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        child: Text(sort, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
 
   Widget _animeCard(Recommendation anime, bool isDark, bool isWide) {
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor =
-        isDark ? Colors.white54 : Colors.grey;
+    final subtitleColor = isDark ? Colors.white54 : Colors.grey;
     final titleFontSize = isWide ? 14.0 : 12.0;
     final metaFontSize = isWide ? 12.0 : 11.0;
 
@@ -458,8 +468,11 @@ class _ExplorePageState extends State<ExplorePage> {
           // ── Rating + episodes row ────────────────────────────────────────
           Row(
             children: [
-              const Icon(Icons.star,
-                  color: Color.fromARGB(255, 255, 217, 0), size: 13),
+              const Icon(
+                Icons.star,
+                color: Color.fromARGB(255, 255, 217, 0),
+                size: 13,
+              ),
               const SizedBox(width: 3),
               Text(
                 anime.rating,
@@ -471,11 +484,8 @@ class _ExplorePageState extends State<ExplorePage> {
               ),
               const Spacer(),
               Text(
-                anime.episodes == 'N/A'
-                    ? 'N/A'
-                    : '${anime.episodes} eps',
-                style: TextStyle(
-                    fontSize: metaFontSize, color: subtitleColor),
+                anime.episodes == 'N/A' ? 'N/A' : '${anime.episodes} eps',
+                style: TextStyle(fontSize: metaFontSize, color: subtitleColor),
               ),
             ],
           ),
