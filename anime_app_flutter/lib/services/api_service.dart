@@ -186,13 +186,13 @@ class ApiService {
       final encoded = Uri.encodeComponent(query);
       final response = await http
           .get(Uri.parse(
-              'https://api.jikan.moe/v4/anime?q=$encoded&limit=8'))
+              'https://api.jikan.moe/v4/anime?q=$encoded&limit=25'))
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) return [];
 
       final data = json.decode(response.body);
-      final items = (data['data'] as List?)?.take(8).toList() ?? [];
+      final items = (data['data'] as List?)?.take(25).toList() ?? [];
       return items
           .map<Map<String, dynamic>>((item) => _formatJikan(item))
           .toList();

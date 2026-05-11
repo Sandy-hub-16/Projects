@@ -103,6 +103,7 @@ class _ExplorePageState extends State<ExplorePage> {
               japaneseTitle: item['japanese_title'] ?? '',
               rating: item['rating']?.toString() ?? 'N/A',
               episodes: item['episodes']?.toString() ?? 'N/A',
+              year: item['year']?.toString() ?? 'N/A',
               imageUrl: item['image_url'] ?? '',
               genres: ((item['genres'] as List?) ?? [])
                   .map((g) => g.toString())
@@ -134,8 +135,12 @@ class _ExplorePageState extends State<ExplorePage> {
         break;
 
       case 'Year':
-        list.sort((a, b) => a.title.compareTo(b.title));
-        break;
+  list.sort((a, b) {
+    final ya = int.tryParse(a.year) ?? 0;
+    final yb = int.tryParse(b.year) ?? 0;
+    return yb.compareTo(ya); // newest first
+  });
+  break;
     }
 
     return list;
@@ -275,10 +280,6 @@ class _ExplorePageState extends State<ExplorePage> {
                             ),
                           ],
                         ),
-                        Text(
-                          _resultCountLabel,
-                          style: TextStyle(fontSize: 13, color: subtitleColor),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -321,6 +322,11 @@ class _ExplorePageState extends State<ExplorePage> {
                         'Year',
                         'Title',
                       ].map((s) => _sortButton(s, isDark)).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _resultCountLabel,
+                      style: TextStyle(fontSize: 13, color: subtitleColor),
                     ),
                     const SizedBox(height: 16),
 

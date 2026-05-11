@@ -16,6 +16,7 @@ class Recommendation {
   final String japaneseTitle;
   final String rating;
   final String episodes;
+  final String year;
   String imageUrl; // mutable — updated by Jikan enrichment
   final List<String> genres;
 
@@ -24,6 +25,7 @@ class Recommendation {
     required this.japaneseTitle,
     required this.rating,
     required this.episodes,
+    required this.year,
     required this.imageUrl,
     required this.genres,
   });
@@ -36,6 +38,7 @@ class Recommendation {
       japaneseTitle: (map['japanese_title'] as String?) ?? '',
       rating: map['rating']?.toString() ?? 'N/A',
       episodes: map['episodes']?.toString() ?? 'N/A',
+      year: map['year']?.toString() ?? 'N/A',
       imageUrl: (map['image_url'] as String?) ?? '',
       genres:
           (map['genres'] as List?)?.whereType<String>().toList() ?? <String>[],
@@ -283,6 +286,7 @@ Rules:
               japaneseTitle: (m['japanese_title'] as String?) ?? '',
               rating: m['rating']?.toString() ?? 'N/A',
               episodes: m['episodes']?.toString() ?? 'N/A',
+              year: m['year']?.toString() ?? 'N/A',
               imageUrl: (m['image_url'] as String?) ?? '',
               genres: (m['genres'] as List?)
                       ?.whereType<String>()
