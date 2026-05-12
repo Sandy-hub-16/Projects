@@ -81,9 +81,10 @@ class _BottomNavState extends State<BottomNav> {
       ),
     );
 
-    if (isDark) {
-      return NightSkyBackground(child: scaffold);
-    }
-    return scaffold;
+    // Always keep NightSkyBackground in the tree so the IndexedStack (and all
+    // page states inside it) are never remounted when dark mode is toggled.
+    // The background renders itself only when isDark is true; in light mode it
+    // passes the child through unchanged.
+    return NightSkyBackground(isDark: isDark, child: scaffold);
   }
 }

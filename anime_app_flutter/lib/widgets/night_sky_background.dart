@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 
 /// Animated night sky background with twinkling stars and a shooting star.
 /// Used as the background when dark mode is enabled.
+///
+/// When [isDark] is false the widget renders [child] directly with no
+/// decoration, keeping the widget tree structure stable so that child states
+/// (e.g. page data loaded in initState) are never discarded on theme toggle.
 class NightSkyBackground extends StatefulWidget {
   final Widget child;
-  const NightSkyBackground({super.key, required this.child});
+  final bool isDark;
+  const NightSkyBackground({super.key, required this.child, this.isDark = true});
 
   @override
   State<NightSkyBackground> createState() => _NightSkyBackgroundState();
@@ -65,6 +70,11 @@ class _NightSkyBackgroundState extends State<NightSkyBackground>
 
   @override
   Widget build(BuildContext context) {
+    // In light mode, render the child directly — no sky decoration needed.
+    // Keeping this widget in the tree (rather than swapping it in/out) is what
+    // prevents page states from being discarded on theme toggle.
+    if (!widget.isDark) return widget.child;
+
     return Stack(
       children: [
         // Night sky gradient
