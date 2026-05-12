@@ -4,6 +4,9 @@ import 'dart:ui_web' as ui_web;
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
+// Tracks which viewIds have already been registered so we never call
+// registerViewFactory twice for the same id (which throws on web).
+final Set<String> _registeredViewIds = {};
 
 Widget buildWebImage({
   required String imageUrl,
@@ -11,16 +14,21 @@ Widget buildWebImage({
   double? height,
   BoxFit fit = BoxFit.cover,
 }) {
-  final viewId = 'img-view-${imageUrl.hashCode}';
+  // Include the fit in the id so the same URL with a different fit gets its
+  // own factory, while identical (url + fit) pairs safely reuse the existing one.
+  final viewId = 'img-view-${imageUrl.hashCode}-${fit.index}';
 
-  ui_web.platformViewRegistry.registerViewFactory(viewId, (int id) {
-    final img = html.ImageElement()
-      ..src = imageUrl
-      ..style.width = '100%'
-      ..style.height = '100%'
-      ..style.objectFit = _boxFitToCss(fit);
-    return img;
-  });
+  if (!_registeredViewIds.contains(viewId)) {
+    _registeredViewIds.add(viewId);
+    ui_web.platformViewRegistry.registerViewFactory(viewId, (int id) {
+      final img = html.ImageElement()
+        ..src = imageUrl
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.objectFit = _boxFitToCss(fit);
+      return img;
+    });
+  }
 
   return SizedBox(
     width: width,

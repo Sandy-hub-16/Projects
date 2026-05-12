@@ -128,6 +128,11 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = false;
   bool isRecommendationLoading = false;
 
+  // Per-section error flags so a failure in one section doesn't blank another.
+  bool _trendingError = false;
+  bool _recentError = false;
+  bool _recommendationError = false;
+
   String _selectedEmoji = '😊';
   bool _isPickerOpen = false;
   final LayerLink _filterLayerLink = LayerLink();
@@ -136,6 +141,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> loadRecommendations(String mood) async {
     setState(() {
       isRecommendationLoading = true;
+      _recommendationError = false;
     });
     try {
       final data = await GroqRecommendationService.fetchRecommendations(mood);
@@ -145,12 +151,11 @@ class _HomePageState extends State<HomePage> {
       _enrichWithJikan(data); // fire-and-forget, no await
     } catch (e) {
       print('[loadRecommendations] error: $e');
-      // Only clear the list if there are no previous results to preserve
-      if (recommendationList.isEmpty) {
-        setState(() {
-          recommendationList = [];
-        });
-      }
+      setState(() {
+        _recommendationError = true;
+        // Preserve any previously loaded list so the section isn't wiped.
+        if (recommendationList.isEmpty) recommendationList = [];
+      });
     } finally {
       setState(() {
         isRecommendationLoading = false;
@@ -168,35 +173,74 @@ class _HomePageState extends State<HomePage> {
   Future<void> loadAnime() async {
     setState(() {
       isLoading = true;
+      _trendingError = false;
+      _recentError = false;
     });
 
-    try {
-      final recent = await ApiService.fetchRecentUpdates();
-      final trending = await ApiService.fetchTrending();
+    // Fetch trending and recent independently so one failure doesn't blank both.
+    // Stagger by 350 ms to avoid hitting Jikan's 3 req/s limit simultaneously.
+    await Future.wait([
+      () async {
+        try {
+          final trending = await ApiService.fetchTrending();
+          if (mounted) setState(() => trendingList = trending);
+        } catch (e) {
+          print('[loadAnime] trending error: $e');
+          if (mounted) setState(() => _trendingError = true);
+        }
+      }(),
+      () async {
+        // Small stagger so the two requests don't land at the exact same ms.
+        await Future.delayed(const Duration(milliseconds: 350));
+        try {
+          final recent = await ApiService.fetchRecentUpdates();
+          if (mounted) setState(() => recentList = recent);
+        } catch (e) {
+          print('[loadAnime] recent error: $e');
+          if (mounted) setState(() => _recentError = true);
+        }
+      }(),
+    ]);
 
-      setState(() {
-        recentList = recent;
-        trendingList = trending;
-      });
-    } catch (e) {
-      print("API Error: $e");
-
-      setState(() {
-        recentList = [];
-        trendingList = [];
-      });
-    }
-
-    setState(() {
-      isLoading = false;
-    });
+    if (mounted) setState(() => isLoading = false);
   }
 
   @override
   void initState() {
     super.initState();
     loadAnime();
-    loadRecommendations("😊");
+    // Delay recommendations slightly so the initial Jikan burst (trending +
+    // recent) has a head-start before the enrichment pass adds more requests.
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) loadRecommendations(_selectedEmoji);
+    });
+  }
+
+  /// A centred error message with a retry button, used when a section fails to load.
+  Widget _retryCard(String message, VoidCallback onRetry) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.wifi_off_rounded, color: Colors.white38, size: 32),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.white54, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Retry'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color.fromARGB(255, 125, 125, 255),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildFilterButton() {
@@ -405,8 +449,19 @@ class _HomePageState extends State<HomePage> {
                 width: 0.3)),
       ),
 
-      body: SingleChildScrollView(
-            child: Column(
+      body: RefreshIndicator(
+            color: const Color.fromARGB(255, 125, 125, 255),
+            onRefresh: () async {
+              await Future.wait([
+                loadAnime(),
+                loadRecommendations(_selectedEmoji),
+              ]);
+            },
+            child: SingleChildScrollView(
+              // Ensure the scroll view is always tall enough for the
+              // RefreshIndicator drag to work even when content is short.
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
               children: [
                 //Featured Section (Scrollable)
                 SizedBox(
@@ -421,6 +476,10 @@ class _HomePageState extends State<HomePage> {
                         ? [
                             const Center(child: CircularProgressIndicator()),
                           ]
+                        : _trendingError && trendingList.isEmpty
+                        ? [_retryCard('Could not load featured anime', () => loadAnime())]
+                        : trendingList.isEmpty
+                        ? [const Center(child: CircularProgressIndicator())]
                         : trendingList.take(5).map((anime) {
                             final title = anime['title'] as String? ?? 'Unknown';
                             final imageUrl = safeImageUrl(anime['image_url']);
@@ -471,14 +530,19 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(
                   height: cardListHeight,
                   child: isRecommendationLoading
-                      ? Center(child: CircularProgressIndicator())
+                      ? const Center(child: CircularProgressIndicator())
+                      : _recommendationError && recommendationList.isEmpty
+                      ? _retryCard(
+                          'Could not load recommendations',
+                          () => loadRecommendations(_selectedEmoji),
+                        )
                       : recommendationList.isEmpty
-                      ? Center(child: Text("No recommendations"))
+                      ? const Center(child: Text('No recommendations'))
                       : ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
                           itemCount: recommendationList.length,
-                          separatorBuilder: (_, _) => SizedBox(width: 12),
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final anime = recommendationList[index];
 
@@ -501,17 +565,17 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Row(
                       children: [
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
 
-                        Icon(
+                        const Icon(
                           Icons.trending_up,
                           color: Color.fromARGB(255, 125, 125, 255),
                           size: 24,
                         ),
 
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
 
-                        Text(
+                        const Text(
                           'Trending',
                           style: TextStyle(
                             color: Color.fromARGB(255, 125, 125, 255),
@@ -527,7 +591,7 @@ class _HomePageState extends State<HomePage> {
                       'See all >',
                       style: TextStyle(
                         fontFamily: 'Naruto',
-                        fontWeight: FontWeight(600),
+                        fontWeight: const FontWeight(600),
                         color: textColor,
                       ),
                     ),
@@ -537,43 +601,47 @@ class _HomePageState extends State<HomePage> {
                 //Trending Card List
                 SizedBox(
                   height: cardListHeight,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    itemCount: trendingList.length,
-                    separatorBuilder: (_, _) => SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final anime = trendingList[index];
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _trendingError && trendingList.isEmpty
+                      ? _retryCard('Could not load trending', () => loadAnime())
+                      : ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          itemCount: trendingList.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final anime = trendingList[index];
 
-                      return SizedBox(
-                        width: cardWidth,
-                        child: trendingCard(
-                          anime['title'] ?? 'No Title',
-                          safeImageUrl(anime['image_url']),
-                          anime['rating'].toString(),
-                          isDark: isDark,
-                          isWide: isWide,
+                            return SizedBox(
+                              width: cardWidth,
+                              child: trendingCard(
+                                anime['title'] ?? 'No Title',
+                                safeImageUrl(anime['image_url']),
+                                anime['rating']?.toString() ?? 'N/A',
+                                isDark: isDark,
+                                isWide: isWide,
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
 
-                        Icon(
+                        const Icon(
                           Icons.access_time,
                           color: Color.fromARGB(255, 125, 125, 255),
                           size: 24,
                         ),
 
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
 
-                        Text(
+                        const Text(
                           'Recent Updates',
                           style: TextStyle(
                             color: Color.fromARGB(255, 125, 125, 255),
@@ -589,7 +657,7 @@ class _HomePageState extends State<HomePage> {
                       'See all >',
                       style: TextStyle(
                         fontFamily: 'Naruto',
-                        fontWeight: FontWeight(600),
+                        fontWeight: const FontWeight(600),
                         color: textColor,
                       ),
                     ),
@@ -602,18 +670,20 @@ class _HomePageState extends State<HomePage> {
                     vertical: 8,
                   ),
                   child: isLoading
-                      ? Center(child: CircularProgressIndicator())
+                      ? const Center(child: CircularProgressIndicator())
+                      : _recentError && recentList.isEmpty
+                      ? _retryCard('Could not load recent updates', () => loadAnime())
                       : Column(
                           children: recentList.isEmpty
-                              ? [Text("No data from API", style: TextStyle(color: textColor))]
+                              ? [Text('No data from API', style: TextStyle(color: textColor))]
                               : recentList.map((anime) {
                                   return recentUpdateCard(
                                     anime['title'] ?? 'No Title',
                                     anime['japanese_title'] ?? '',
-                                    anime['rating'].toString(),
+                                    anime['rating']?.toString() ?? 'N/A',
                                     anime['episodes'] != null
                                         ? anime['episodes'].toString()
-                                        : "N/A",
+                                        : 'N/A',
                                     anime['image_url'] ?? '',
                                     List<String>.from(anime['genres'] ?? []),
                                     isDark: isDark,
@@ -625,7 +695,8 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-        );
+        ),
+      );
   }
 }
 

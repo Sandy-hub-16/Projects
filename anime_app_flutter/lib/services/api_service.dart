@@ -57,32 +57,75 @@ class ApiService {
   }
 
   /// Fetches currently airing anime directly from Jikan — no backend needed.
+  /// Retries up to [_maxRetries] times with exponential backoff on 429 / 5xx.
   static Future<List> fetchRecentUpdates() async {
-    final response = await http
-        .get(Uri.parse('https://api.jikan.moe/v4/seasons/now'))
-        .timeout(const Duration(seconds: 20));
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final items = (data['data'] as List?)?.take(10).toList() ?? [];
-      return items.map(_formatJikan).toList();
-    } else {
-      throw Exception('Failed to load recent updates');
-    }
+    final response = await _jikanGet(
+      Uri.parse('https://api.jikan.moe/v4/seasons/now'),
+      label: 'recent updates',
+    );
+    final data = json.decode(response.body);
+    final items = (data['data'] as List?)?.take(10).toList() ?? [];
+    return items.map(_formatJikan).toList();
   }
 
   /// Fetches top anime directly from Jikan — no backend needed.
+  /// Retries up to [_maxRetries] times with exponential backoff on 429 / 5xx.
   static Future<List> fetchTrending() async {
-    final response = await http
-        .get(Uri.parse('https://api.jikan.moe/v4/top/anime'))
-        .timeout(const Duration(seconds: 20));
+    final response = await _jikanGet(
+      Uri.parse('https://api.jikan.moe/v4/top/anime'),
+      label: 'trending',
+    );
+    final data = json.decode(response.body);
+    final items = (data['data'] as List?)?.take(10).toList() ?? [];
+    return items.map(_formatJikan).toList();
+  }
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final items = (data['data'] as List?)?.take(10).toList() ?? [];
-      return items.map(_formatJikan).toList();
-    } else {
-      throw Exception('Failed to load trending');
+  // ---------------------------------------------------------------------------
+  // Jikan retry helper
+  // ---------------------------------------------------------------------------
+
+  static const int _maxRetries = 3;
+
+  /// GETs [uri] with up to [_maxRetries] retries and exponential backoff.
+  ///
+  /// Retries on:
+  ///   - HTTP 429 (rate-limited) — waits for Retry-After header if present,
+  ///     otherwise backs off 1 s → 2 s → 4 s.
+  ///   - HTTP 5xx (server error) — same backoff schedule.
+  ///
+  /// Throws on any other non-200 status or after all retries are exhausted.
+  static Future<http.Response> _jikanGet(
+    Uri uri, {
+    String label = 'Jikan',
+  }) async {
+    int attempt = 0;
+    while (true) {
+      final response = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) return response;
+
+      final shouldRetry = response.statusCode == 429 ||
+          response.statusCode >= 500;
+
+      if (!shouldRetry || attempt >= _maxRetries) {
+        throw Exception(
+            'Failed to load $label (HTTP ${response.statusCode}) after ${attempt + 1} attempt(s)');
+      }
+
+      // Honour Retry-After if the server sent one, otherwise use backoff.
+      Duration delay;
+      final retryAfter = response.headers['retry-after'];
+      if (retryAfter != null) {
+        final seconds = int.tryParse(retryAfter) ?? (1 << attempt);
+        delay = Duration(seconds: seconds.clamp(1, 10));
+      } else {
+        delay = Duration(seconds: 1 << attempt); // 1 s, 2 s, 4 s
+      }
+
+      await Future.delayed(delay);
+      attempt++;
     }
   }
 
