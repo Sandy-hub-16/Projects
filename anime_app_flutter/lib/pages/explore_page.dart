@@ -71,11 +71,15 @@ class _ExplorePageState extends State<ExplorePage> {
         _genres = ['All', ...sortedGenres];
       });
 
-      // Enrich images in background
-      GroqRecommendationService.enrichWithJikan(
-        recommendations: data,
-        onUpdate: (_) => setState(() {}),
-      );
+      // Enrich any items that are still missing an image (Jikan data already
+      // includes images, so this is a no-op in the normal case).
+      final needsEnrich = data.any((a) => a.imageUrl.isEmpty);
+      if (needsEnrich) {
+        GroqRecommendationService.enrichWithJikan(
+          recommendations: data,
+          onUpdate: (_) => setState(() {}),
+        );
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {

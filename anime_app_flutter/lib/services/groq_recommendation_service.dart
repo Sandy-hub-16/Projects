@@ -209,92 +209,70 @@ class GroqRecommendationService {
     await Future.wait(futures);
   }
 
-  /// Returns a broad list of 40 well-known anime for the Explore page.
-  /// Results are cached for the session so the page doesn't re-fetch on
-  /// every visit.
+  /// Returns a broad list of up to 40 top-rated anime for the Explore page,
+  /// fetched directly from the Jikan /top/anime endpoint (two pages of 25).
+  ///
+  /// Using Jikan instead of Groq means:
+  /// - No API key required.
+  /// - Images are already included — no enrichment pass needed.
+  /// - Typical load time is 1–2 s instead of 10–15 s.
+  ///
+  /// Results are cached in memory for the session.
   static Future<List<Recommendation>> fetchExploreAnime() async {
     if (_exploreCache != null) return _exploreCache!;
 
-    if (_groqApiKey.isEmpty) {
-      throw ArgumentError(
-          'GROQ_API_KEY is not configured. Supply it via --dart-define=GROQ_API_KEY=<value>.');
+    // Fetch two pages of 25 from Jikan concurrently to get ~50 results,
+    // then trim to 40.
+    final responses = await Future.wait([
+      http
+          .get(Uri.parse('https://api.jikan.moe/v4/top/anime?page=1&limit=25'))
+          .timeout(const Duration(seconds: 20)),
+      http
+          .get(Uri.parse('https://api.jikan.moe/v4/top/anime?page=2&limit=25'))
+          .timeout(const Duration(seconds: 20)),
+    ]);
+
+    final items = <dynamic>[];
+    for (final resp in responses) {
+      if (resp.statusCode == 200) {
+        final body = json.decode(resp.body) as Map<String, dynamic>;
+        final data = body['data'] as List<dynamic>?;
+        if (data != null) items.addAll(data);
+      }
     }
 
-    const prompt = '''List exactly 40 well-known anime titles spanning a wide variety of genres.
-
-Respond with ONLY a raw JSON array. No markdown, no code fences, no explanation — just the JSON array.
-
-Each item must follow this exact schema:
-[
-  {
-    "title": "string",
-    "japanese_title": "string",
-    "rating": number or "N/A",
-    "episodes": integer or "N/A",
-    "year": integer or "N/A",
-    "image_url": "",
-    "genres": ["string", ...]
-  }
-]
-
-Rules:
-- "image_url" must always be an empty string "".
-- "rating" must be a number (e.g. 8.5) or the string "N/A".
-- "episodes" must be an integer (e.g. 12) or the string "N/A".
-- "year" must be a 4-digit integer (e.g. 2021) or the string "N/A".
-- "genres" must be an array of genre strings (e.g. ["Action", "Comedy"]).
-- Include a diverse mix of genres: Action, Adventure, Comedy, Drama, Fantasy, Historical, Mystery, Romance, Sci-Fi, Shonen, Slice of Life, Supernatural, Thriller.
-- Output nothing except the JSON array.''';
-
-    late final Object e1;
-    try {
-      final response = await _callGroq(prompt);
-      final list = _parseExploreResponse(response.body);
-      _exploreCache = list;
-      return list;
-    } catch (groqError) {
-      e1 = groqError;
+    if (items.isEmpty) {
+      throw const RecommendationException(
+          'Jikan returned no results for top anime.');
     }
 
-    if (_openRouterApiKey.isEmpty) throw e1;
-
-    try {
-      final response = await _callOpenRouter(prompt);
-      final list = _parseExploreResponse(response.body);
-      _exploreCache = list;
-      return list;
-    } catch (e2) {
-      throw RecommendationException(
-          'Both Groq and OpenRouter failed: $e1 / $e2');
-    }
-  }
-
-  static List<Recommendation> _parseExploreResponse(String responseBody) {
-    final envelope = json.decode(responseBody) as Map<String, dynamic>;
-    final choices = envelope['choices'] as List<dynamic>;
-    final content =
-        (choices[0] as Map<String, dynamic>)['message']['content'] as String;
-    final extracted = _extractJsonArray(content);
-    final decoded = json.decode(extracted);
-    if (decoded is! List) {
-      throw const FormatException('Expected a JSON array');
-    }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map((m) => Recommendation(
-              title: (m['title'] as String?) ?? 'Unknown',
-              japaneseTitle: (m['japanese_title'] as String?) ?? '',
-              rating: m['rating']?.toString() ?? 'N/A',
-              episodes: m['episodes']?.toString() ?? 'N/A',
-              year: m['year']?.toString() ?? 'N/A',
-              imageUrl: (m['image_url'] as String?) ?? '',
-              genres: (m['genres'] as List?)
-                      ?.whereType<String>()
-                      .toList() ??
-                  [],
-            ))
+    final list = items
         .take(40)
+        .map((item) {
+          final images = item['images'] as Map<String, dynamic>?;
+          final webp = images?['webp'] as Map<String, dynamic>?;
+          final jpg = images?['jpg'] as Map<String, dynamic>?;
+          final imageUrl = webp?['large_image_url'] as String? ??
+              jpg?['large_image_url'] as String? ??
+              '';
+
+          return Recommendation(
+            title: (item['title'] as String?) ?? 'Unknown',
+            japaneseTitle: (item['title_japanese'] as String?) ?? '',
+            rating: item['score']?.toString() ?? 'N/A',
+            episodes: item['episodes']?.toString() ?? 'N/A',
+            year: item['year']?.toString() ?? 'N/A',
+            imageUrl: imageUrl,
+            genres: ((item['genres'] as List?) ?? [])
+                .map((g) => (g['name'] as String?) ?? '')
+                .where((s) => s.isNotEmpty)
+                .toList(),
+          );
+        })
         .toList();
+
+    _exploreCache = list;
+    return list;
   }
 
   // -------------------------------------------------------------------------
