@@ -4,7 +4,6 @@ import 'dart:ui_web' as ui_web;
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
-int _viewIdCounter = 0;
 
 Widget buildWebImage({
   required String imageUrl,
@@ -12,7 +11,7 @@ Widget buildWebImage({
   double? height,
   BoxFit fit = BoxFit.cover,
 }) {
-  final viewId = 'img-${_viewIdCounter++}-${imageUrl.hashCode}';
+  final viewId = 'img-view-${imageUrl.hashCode}';
 
   ui_web.platformViewRegistry.registerViewFactory(viewId, (int id) {
     final img = html.ImageElement()

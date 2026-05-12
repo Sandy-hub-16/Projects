@@ -900,6 +900,7 @@ Widget featuredCard(BuildContext context,
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: CrossOriginImage(
+                        key: ValueKey(imageUrl), 
                         imageUrl: safeImageUrl(imageUrl),
                         width: double.infinity,
                         height: double.infinity,
@@ -1052,6 +1053,7 @@ Widget trendingCard(String title, String imageUrl, String rating, {bool isDark =
           child: AspectRatio(
             aspectRatio: 2 / 3,
             child: CrossOriginImage(
+              key: ValueKey(imageUrl), 
               imageUrl: safeImageUrl(imageUrl),
               fit: BoxFit.cover,
             ),
@@ -1139,6 +1141,7 @@ Widget recentUpdateCard(
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: CrossOriginImage(
+            key: ValueKey(imageUrl), 
             imageUrl: safeImageUrl(imageUrl),
             width: imgWidth,
             height: imgHeight,
