@@ -1,4 +1,4 @@
-// ignore_for_file: duplicate_ignore, deprecated_member_use, avoid_print, unused_field, prefer_final_fields
+// ignore_for_file: unnecessary_underscores, duplicate_ignore, deprecated_member_use, avoid_print, unused_field, prefer_final_fields
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

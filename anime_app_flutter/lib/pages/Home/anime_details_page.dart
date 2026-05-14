@@ -78,9 +78,13 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage> {
 
     return Scaffold(
       backgroundColor: bgColor,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 125, 125, 255),
-        title: Text(widget.title, style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
@@ -128,9 +132,7 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage> {
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(blurRadius: 8, color: Colors.black),
-                      ],
+                      shadows: [Shadow(blurRadius: 8, color: Colors.black)],
                     ),
                   ),
                 ),
@@ -176,9 +178,7 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage> {
                     onPressed: () {
                       setState(() => _synopsisExpanded = !_synopsisExpanded);
                     },
-                    child: Text(
-                      _synopsisExpanded ? 'Show less' : 'Show more',
-                    ),
+                    child: Text(_synopsisExpanded ? 'Show less' : 'Show more'),
                   ),
 
                   const SizedBox(height: 8),
@@ -273,10 +273,7 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Chip(
-              label: Text(
-                genre.toString(),
-                style: TextStyle(color: textColor),
-              ),
+              label: Text(genre.toString(), style: TextStyle(color: textColor)),
               side: BorderSide(color: brandColor),
             ),
           );
